@@ -174,20 +174,27 @@ class AlphaZeroNode:
             return 0.0
         return self.value_sum / self.visit_count
     
-    def ucb_score(self, c_puct: float, parent_visits: int) -> float:
+    def ucb_score(self, c_puct: float, parent_visits: int, parent_player: int = 0) -> float:
         """
         Score PUCT pour la sélection.
         
+        Chaque noeud stocke la valeur du point de vue de SON propre joueur.
+        Le parent veut maximiser depuis SA perspective, donc on inverse
+        quand les joueurs diffèrent.
+        
         PUCT = Q(s,a) + c_puct * P(s,a) * √N(parent) / (1 + N(s,a))
         """
+        exploitation = self.value
+        if self.player != parent_player:
+            exploitation = -exploitation
         exploration = c_puct * self.prior * math.sqrt(parent_visits) / (1 + self.visit_count)
-        return self.value + exploration
+        return exploitation + exploration
     
     def select_child(self, c_puct: float) -> "AlphaZeroNode":
         """Sélectionne l'enfant avec le meilleur score PUCT."""
         return max(
             self.children.values(),
-            key=lambda n: n.ucb_score(c_puct, self.visit_count)
+            key=lambda n: n.ucb_score(c_puct, self.visit_count, self.player)
         )
     
     def best_action(self, temperature: float = 0.0) -> int:
@@ -372,11 +379,11 @@ class AlphaZeroAgent(Agent):
                 if len(available) > 0:
                     self._expand(node, env_sim, available)
             
-            # Évaluation (value du réseau au lieu de rollout)
+            # Évaluation (value du point de vue du noeud courant)
             if node.is_terminal:
                 # Utiliser la récompense réelle
                 if hasattr(env_sim, '_winner') and env_sim._winner is not None:
-                    if env_sim._winner == root.player:
+                    if env_sim._winner == node.player:
                         value = 1.0
                     else:
                         value = -1.0
@@ -385,17 +392,16 @@ class AlphaZeroAgent(Agent):
             else:
                 state_tensor = torch.FloatTensor(node.state).to(self.device)
                 _, value = self.network.predict(state_tensor)
-                
-                # Ajuster selon le joueur
-                if node.player != root.player:
-                    value = -value
+                # Le réseau prédit depuis la perspective du joueur courant
+                # → pas d'ajustement nécessaire
             
-            # Backpropagation
+            # Backpropagation (valeur du point de vue de chaque noeud)
             for n in reversed(path):
                 n.visit_count += 1
-                # Inverser la valeur en remontant (jeux à 2 joueurs)
                 n.value_sum += value
-                value = -value
+                # Inverser seulement quand le joueur change entre parent et enfant
+                if n.parent is not None and n.player != n.parent.player:
+                    value = -value
         
         # Choisir l'action
         temp = self.temperature if training and self._move_count < self.temperature_threshold else 0.0
@@ -489,7 +495,7 @@ class AlphaZeroAgent(Agent):
             
             if node.is_terminal:
                 if hasattr(env_sim, '_winner') and env_sim._winner is not None:
-                    if env_sim._winner == root.player:
+                    if env_sim._winner == node.player:
                         value = 1.0
                     else:
                         value = -1.0
@@ -498,13 +504,12 @@ class AlphaZeroAgent(Agent):
             else:
                 state_tensor = torch.FloatTensor(node.state).to(self.device)
                 _, value = self.network.predict(state_tensor)
-                if node.player != root.player:
-                    value = -value
             
             for n in reversed(path):
                 n.visit_count += 1
                 n.value_sum += value
-                value = -value
+                if n.parent is not None and n.player != n.parent.player:
+                    value = -value
         
         policy = root.get_policy(self.n_actions)
         root_value = root.value

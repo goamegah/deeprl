@@ -396,14 +396,68 @@ class Quarto(Environment):
         policy: np.ndarray
     ) -> List[Tuple[np.ndarray, np.ndarray]]:
         """
-        Retourne les symétries de l'état et de la politique.
-        
-        Utile pour augmenter les données d'entraînement.
-        Quarto a des symétries par rotation (4) et réflexion (2) = 8 symétries.
+        Retourne les 8 symétries (4 rotations × 2 réflexions) de l'état et de la politique.
+
+        Le plateau 4×4 possède le même groupe de symétries D4 qu'un carré.
+        Chaque transformation permute les 16 positions du plateau de manière
+        cohérente dans le vecteur d'état **et** dans le vecteur de politique.
+
+        Note : seule la phase "place" bénéficie de la permutation de politique.
+        En phase "give", les actions désignent des pièces (pas des positions),
+        donc la politique n'est pas permutée — mais l'état l'est quand même.
         """
-        # Simplification: retourner juste l'original
-        # Une implémentation complète ajouterait les 8 transformations
-        return [(state, policy)]
+        symmetries: List[Tuple[np.ndarray, np.ndarray]] = []
+
+        # Les 8 transformations D4 exprimées comme permutations d'indices 0-15
+        # Convention : indice = row * 4 + col  (row,col dans 0..3)
+        def _idx(r: int, c: int) -> int:
+            return r * 4 + c
+
+        transforms: List[List[int]] = []
+        for rot in range(4):          # 0°, 90°, 180°, 270°
+            for flip in (False, True): # identité / réflexion horizontale
+                perm = [0] * 16
+                for r in range(4):
+                    for c in range(4):
+                        rr, cc = r, c
+                        # Rotations successives de 90° (sens horaire)
+                        for _ in range(rot):
+                            rr, cc = cc, 3 - rr
+                        # Réflexion horizontale (miroir gauche-droite)
+                        if flip:
+                            cc = 3 - cc
+                        perm[_idx(r, c)] = _idx(rr, cc)
+                transforms.append(perm)
+
+        is_place = self._phase == "place"
+
+        for perm in transforms:
+            new_state = self._permute_board_in_state(state, perm)
+            if is_place:
+                new_policy = np.zeros_like(policy)
+                for src, dst in enumerate(perm):
+                    new_policy[dst] = policy[src]
+            else:
+                new_policy = policy.copy()
+            symmetries.append((new_state, new_policy))
+
+        return symmetries
+
+    # ------------------------------------------------------------------
+    def _permute_board_in_state(
+        self, state: np.ndarray, perm: List[int]
+    ) -> np.ndarray:
+        """Applique une permutation de positions au vecteur d'état encodé."""
+        new_state = state.copy()
+        if self.use_compact_state:
+            # Compact : 16 blocs de 5 (board) puis le reste inchangé
+            for src, dst in enumerate(perm):
+                new_state[dst * 5 : dst * 5 + 5] = state[src * 5 : src * 5 + 5]
+        else:
+            # One-hot : 16 blocs de 17 (board) puis le reste inchangé
+            for src, dst in enumerate(perm):
+                new_state[dst * 17 : dst * 17 + 17] = state[src * 17 : src * 17 + 17]
+        return new_state
 
 
 class QuartoVsRandom(Quarto):

@@ -521,8 +521,11 @@ class StochasticMuZeroAgent(Agent):
             with torch.no_grad():
                 next_state, reward = self.chance_dynamics(node.state, outcome_code)
             
-            # Creer un noeud enfant pour cet outcome
-            outcome_idx = 0  # Simplifie pour le moment
+            # Identifier l'outcome echantillonne via l'embedding le plus proche
+            with torch.no_grad():
+                dists = torch.cdist(outcome_code, self.chance_encoder.outcome_embedding.weight)
+                outcome_idx = int(dists.argmin(dim=-1).item())
+            
             if outcome_idx not in node.children:
                 node.children[outcome_idx] = StochasticMCTSNode(
                     state=next_state,

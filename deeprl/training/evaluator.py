@@ -97,6 +97,7 @@ class EvaluationResults:
             "mean_action_time": np.mean(self.action_times) if self.action_times else 0,
             "std_action_time": np.std(self.action_times) if self.action_times else 0,
             "mean_episode_time": np.mean(self.episode_times),
+            "games_per_second": len(self.scores) / sum(self.episode_times) if sum(self.episode_times) > 0 else 0,
             
             # Métriques de victoire (pour les jeux)
             "win_rate": self.wins / len(self.scores) if len(self.scores) > 0 else 0,

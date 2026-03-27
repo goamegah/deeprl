@@ -71,12 +71,17 @@ class MCTSNode:
         """Tous les enfants ont été visités au moins une fois."""
         return len(self.untried_actions) == 0
     
-    def ucb_score(self, c: float = math.sqrt(2)) -> float:
+    def ucb_score(self, c: float = math.sqrt(2), parent_player: int = 0) -> float:
         """
         Calcule le score UCB (Upper Confidence Bound).
         
+        Chaque noeud stocke la valeur du point de vue de SON propre joueur.
+        Lors de la sélection, le parent veut maximiser depuis SA perspective,
+        donc on inverse l'exploitation quand les joueurs diffèrent.
+        
         Args:
             c: Constante d'exploration
+            parent_player: Joueur du noeud parent (pour ajuster la perspective)
         
         Returns:
             Score UCB
@@ -85,13 +90,16 @@ class MCTSNode:
             return float('inf')
         
         exploitation = self.value
+        # Inverser si le parent est un joueur différent (sa victoire = notre défaite)
+        if self.player != parent_player:
+            exploitation = -exploitation
         exploration = c * math.sqrt(math.log(self.parent.visits) / self.visits)
         
         return exploitation + exploration
     
     def best_child(self, c: float = math.sqrt(2)) -> "MCTSNode":
         """Retourne l'enfant avec le meilleur score UCB."""
-        return max(self.children.values(), key=lambda n: n.ucb_score(c))
+        return max(self.children.values(), key=lambda n: n.ucb_score(c, self.player))
     
     def best_action(self) -> int:
         """Retourne l'action la plus visitée (meilleure politique)."""

@@ -124,6 +124,7 @@ class GameViewer:
             # Quarto: 4x4 board + pieces panel
             self.grid_width = 4
             self.grid_height = 4
+            self.cell_size = max(self.cell_size, 110)  # min 110px pour lisibilité
         else:
             # Défaut
             self.grid_width = 5
@@ -135,11 +136,11 @@ class GameViewer:
         
         # Espace supplémentaire pour le panel de pièces Quarto
         if "quarto" in self.env.name.lower():
-            self._quarto_panel_height = 200
+            self._quarto_panel_height = 380
             self.game_height += self._quarto_panel_height
         
         # Panel d'info à droite
-        self.info_width = 250
+        self.info_width = 280 if "quarto" in self.env.name.lower() else 250
         
         self.window_width = self.game_width + self.info_width
         self.window_height = max(self.game_height, 400)
@@ -540,7 +541,7 @@ class GameViewer:
                 if piece_id >= 0:
                     self._draw_quarto_piece(
                         x + cs // 2, y + cs // 2,
-                        piece_id, cs * 0.32
+                        piece_id, cs * 0.38
                     )
                 else:
                     # Numéro de position
@@ -560,9 +561,9 @@ class GameViewer:
         # Pièce courante à placer
         if self.env._current_piece is not None:
             self.screen.blit(
-                self.font_small.render("Piece:", True, self.BLACK), (5, py)
+                self.font_small.render("Piece:", True, self.BLACK), (8, py)
             )
-            self._draw_quarto_piece(75, py + 10, self.env._current_piece, 14)
+            self._draw_quarto_piece(80, py + 12, self.env._current_piece, 18)
             # Attributs texte
             p = self.env._current_piece
             attrs = ""
@@ -571,9 +572,9 @@ class GameViewer:
             attrs += "P" if p & 4 else "x"
             attrs += "C" if p & 8 else "r"
             self.screen.blit(
-                self.font_small.render(f"[{attrs}]  id={p}", True, self.GRAY), (100, py)
+                self.font_small.render(f"[{attrs}]  id={p}", True, self.GRAY), (110, py)
             )
-            py += 28
+            py += 32
         else:
             py += 4
         
@@ -590,25 +591,26 @@ class GameViewer:
             )
         py += 24
         
-        # Grille de pièces (2 lignes × 8 colonnes)
-        piece_spacing = max(1, (board_px - 16) // 8)
-        piece_draw_size = min(cs * 0.22, 18)
+        # Grille de pièces (4 lignes × 4 colonnes)
+        piece_spacing = max(1, (board_px - 16) // 4)
+        piece_draw_size = cs * 0.20
+        row_height = 65
         
         self._quarto_piece_rects = {}
         
         for i in range(16):
-            col = i % 8
-            row_off = i // 8
+            col = i % 4
+            row_off = i // 4
             cx = 8 + col * piece_spacing + piece_spacing // 2
-            cy = py + row_off * 55 + 22
+            cy = py + row_off * row_height + 26
             
             available = i in self.env._available_pieces
             
             cell_rect = pygame.Rect(
-                cx - piece_spacing // 2 + 1,
-                cy - 20,
-                piece_spacing - 2,
-                44,
+                cx - piece_spacing // 2 + 4,
+                cy - 22,
+                piece_spacing - 8,
+                52,
             )
             
             if available:
@@ -631,7 +633,7 @@ class GameViewer:
             # Étiquette hexadécimale
             lbl_color = self.BLACK if available else self.GRAY
             lbl = self.font_small.render(f"{i:X}", True, lbl_color)
-            self.screen.blit(lbl, lbl.get_rect(center=(cx, cy + 26)))
+            self.screen.blit(lbl, lbl.get_rect(center=(cx, cy + 28)))
     
     def _draw_info_panel(self):
         """Dessine le panel d'informations."""
