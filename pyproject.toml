@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deeprl"
+version = "0.2.0"
+description = "Bibliothèque pédagogique de Deep Reinforcement Learning en PyTorch"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "DeepRL Team"}
+]
+maintainers = [
+    {name = "Godwin Amegah", email = "komlan.godwin.amegah@gmail.com"}
+]
+keywords = [
+    "reinforcement-learning",
+    "deep-learning",
+    "pytorch",
+    "q-learning",
+    "dqn",
+    "ppo",
+    "mcts",
+    "alphazero",
+    "muzero"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.0.0",
+    "numpy>=1.24.0",
+    "matplotlib>=3.7.0",
+    "tqdm>=4.65.0",
+]
+
+[project.optional-dependencies]
+gui = ["pygame>=2.5.0"]
+notebook = ["jupyter>=1.0.0", "ipywidgets>=8.0.0"]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+]
+all = [
+    "deeprl[gui,notebook,dev]"
+]
+
+[project.urls]
+Homepage = "https://github.com/goamegah/deeprl"
+Documentation = "https://github.com/goamegah/deeprl#readme"
+Repository = "https://github.com/goamegah/deeprl.git"
+Issues = "https://github.com/goamegah/deeprl/issues"
+
+[project.scripts]
+deeprl = "main:main"
+
+[tool.setuptools]
+packages = ["deeprl", "deeprl.envs", "deeprl.agents", "deeprl.agents.tabular", "deeprl.agents.value_based", "deeprl.agents.policy_based", "deeprl.agents.planning", "deeprl.agents.imitation", "deeprl.networks", "deeprl.memory", "deeprl.training", "deeprl.gui"]
+
+[tool.setuptools.package-data]
+deeprl = ["py.typed"]
+
+[tool.black]
+line-length = 88
+target-version = ["py39", "py310", "py311", "py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
