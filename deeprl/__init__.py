@@ -5,9 +5,7 @@ Cette bibliothèque implémente les algorithmes de RL de manière claire et comp
 
 Modules:
 - envs: Environnements (LineWorld, GridWorld, TicTacToe, Quarto)
-- agents: Agents (Q-Learning, DQN, REINFORCE, PPO, MCTS, AlphaZero, MuZero, Imitation)
-- networks: Architectures de réseaux de neurones
-- memory: Buffers de replay
+- agents: Agents (Random, Human, Q-Learning)
 - training: Entraînement et évaluation
 - gui: Interface graphique Pygame
 """
@@ -21,9 +19,6 @@ from deeprl.envs import (
     Quarto, QuartoVsRandom
 )
 from deeprl.agents import (
-    Agent, RandomAgent, HumanAgent, TabularQLearning, DQNAgent,
-    REINFORCEAgent, PPOAgent, MCTSAgent, RandomRolloutAgent,
-    AlphaZeroAgent, MuZeroAgent, StochasticMuZeroAgent,
-    ExpertApprenticeAgent, MCTSExpert, BehaviorCloning, DAgger
+    Agent, RandomAgent, HumanAgent, TabularQLearning
 )
 from deeprl.training import Trainer, Evaluator
