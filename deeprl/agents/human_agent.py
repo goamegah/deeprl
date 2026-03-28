@@ -121,10 +121,10 @@ class HumanAgent(Agent):
                 if action in available_actions:
                     return action
                 else:
-                    print(f"❌ Action {action} invalide. Choisissez parmi {available_actions}")
+                    print(f"/!\\ Action {action} invalide. Choisissez parmi {available_actions}")
                     
             except ValueError:
-                print("❌ Entrez un nombre valide.")
+                print("/!\\ Entrez un nombre valide.")
     
     def _act_gui(self, available_actions: List[int]) -> int:
         """

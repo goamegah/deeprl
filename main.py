@@ -46,52 +46,17 @@ from deeprl.training import Trainer, Evaluator
 AGENT_REGISTRY = {
     "lineworld": {
         "Random":                   lambda: RandomAgent(state_dim=7, n_actions=2),
-        "TabularQLearning":         lambda: TabularQLearning(n_states=7, n_actions=2, lr=0.1, gamma=0.99),
-        "DeepQLearning":            lambda: DQNAgent(state_dim=7, n_actions=2, hidden_dims=[32,32], lr=1e-3, gamma=0.99, double_dqn=False, use_replay=False),
-        "DoubleDeepQLearning":      lambda: DQNAgent(state_dim=7, n_actions=2, hidden_dims=[32,32], lr=1e-3, gamma=0.99, double_dqn=True, use_replay=False),
-        "DoubleDeepQLearningWithER": lambda: DQNAgent(state_dim=7, n_actions=2, hidden_dims=[32,32], lr=1e-3, gamma=0.99, double_dqn=True, use_replay=True, buffer_size=5000, batch_size=32, min_buffer_size=200),
-        "DoubleDeepQLearningWithPER": lambda: DQNAgent(state_dim=7, n_actions=2, hidden_dims=[32,32], lr=1e-3, gamma=0.99, double_dqn=True, use_replay=True, prioritized=True, buffer_size=5000, batch_size=32, min_buffer_size=200),
-        "REINFORCE":                lambda: REINFORCEAgent(state_dim=7, n_actions=2, hidden_dims=[32,32], lr=1e-3, gamma=0.99, baseline="none"),
-        "REINFORCE_MeanBaseline":   lambda: REINFORCEAgent(state_dim=7, n_actions=2, hidden_dims=[32,32], lr=1e-3, gamma=0.99, baseline="mean"),
-        "REINFORCE_Critic":         lambda: REINFORCEAgent(state_dim=7, n_actions=2, hidden_dims=[32,32], lr=1e-3, gamma=0.99, baseline="critic"),
-        "PPO":                      lambda: PPOAgent(state_dim=7, n_actions=2, hidden_dims=[32,32], lr=3e-4, gamma=0.99),
+        "TabularQLearning":         lambda: TabularQLearning(n_states=7, n_actions=2, lr=0.1, gamma=0.99)
     },
     "gridworld": {
         "Random":                   lambda: RandomAgent(state_dim=25, n_actions=4),
-        "TabularQLearning":         lambda: TabularQLearning(n_states=25, n_actions=4, lr=0.1, gamma=0.99),
-        "DeepQLearning":            lambda: DQNAgent(state_dim=25, n_actions=4, hidden_dims=[64,64], lr=1e-3, gamma=0.99, double_dqn=False, use_replay=False),
-        "DoubleDeepQLearning":      lambda: DQNAgent(state_dim=25, n_actions=4, hidden_dims=[64,64], lr=1e-3, gamma=0.99, double_dqn=True, use_replay=False),
-        "DoubleDeepQLearningWithER": lambda: DQNAgent(state_dim=25, n_actions=4, hidden_dims=[64,64], lr=1e-3, gamma=0.99, double_dqn=True, use_replay=True, buffer_size=10000, batch_size=64, min_buffer_size=500),
-        "DoubleDeepQLearningWithPER": lambda: DQNAgent(state_dim=25, n_actions=4, hidden_dims=[64,64], lr=1e-3, gamma=0.99, double_dqn=True, use_replay=True, prioritized=True, buffer_size=10000, batch_size=64, min_buffer_size=500),
-        "REINFORCE":                lambda: REINFORCEAgent(state_dim=25, n_actions=4, hidden_dims=[64,64], lr=1e-3, gamma=0.99, baseline="none"),
-        "REINFORCE_MeanBaseline":   lambda: REINFORCEAgent(state_dim=25, n_actions=4, hidden_dims=[64,64], lr=1e-3, gamma=0.99, baseline="mean"),
-        "REINFORCE_Critic":         lambda: REINFORCEAgent(state_dim=25, n_actions=4, hidden_dims=[64,64], lr=1e-3, gamma=0.99, baseline="critic"),
-        "PPO":                      lambda: PPOAgent(state_dim=25, n_actions=4, hidden_dims=[64,64], lr=3e-4, gamma=0.99),
-        "MuZero":                   lambda: MuZeroAgent(state_dim=25, n_actions=4, latent_dim=32, hidden_dims=[64,64], n_simulations=20, lr=1e-3, gamma=0.99),
-        "MuZeroStochastic":         lambda: StochasticMuZeroAgent(state_dim=25, n_actions=4, latent_dim=32, n_chance_outcomes=8, hidden_dims=[64,64], n_simulations=20, lr=1e-3, gamma=0.99),
+        "TabularQLearning":         lambda: TabularQLearning(n_states=25, n_actions=4, lr=0.1, gamma=0.99)
     },
     "tictactoe": {
-        "Random":                   lambda: RandomAgent(state_dim=27, n_actions=9),
-        "DeepQLearning":            lambda: DQNAgent(state_dim=27, n_actions=9, hidden_dims=[128,128], lr=1e-3, gamma=0.99, double_dqn=False, use_replay=False),
-        "DoubleDeepQLearning":      lambda: DQNAgent(state_dim=27, n_actions=9, hidden_dims=[128,128], lr=1e-3, gamma=0.99, double_dqn=True, use_replay=False),
-        "DoubleDeepQLearningWithER": lambda: DQNAgent(state_dim=27, n_actions=9, hidden_dims=[128,128], lr=1e-3, gamma=0.99, double_dqn=True, use_replay=True, buffer_size=10000, batch_size=64, min_buffer_size=500),
-        "DoubleDeepQLearningWithPER": lambda: DQNAgent(state_dim=27, n_actions=9, hidden_dims=[128,128], lr=1e-3, gamma=0.99, double_dqn=True, use_replay=True, prioritized=True, buffer_size=10000, batch_size=64, min_buffer_size=500),
-        "REINFORCE":                lambda: REINFORCEAgent(state_dim=27, n_actions=9, hidden_dims=[128,128], lr=1e-3, gamma=0.99, baseline="none"),
-        "REINFORCE_MeanBaseline":   lambda: REINFORCEAgent(state_dim=27, n_actions=9, hidden_dims=[128,128], lr=1e-3, gamma=0.99, baseline="mean"),
-        "REINFORCE_Critic":         lambda: REINFORCEAgent(state_dim=27, n_actions=9, hidden_dims=[128,128], lr=1e-3, gamma=0.99, baseline="critic"),
-        "PPO":                      lambda: PPOAgent(state_dim=27, n_actions=9, hidden_dims=[128,128], lr=3e-4, gamma=0.99),
-        "RandomRollout":            lambda: RandomRolloutAgent(n_rollouts=20, max_depth=20),
-        "MCTS":                     lambda: MCTSAgent(n_simulations=100, c_exploration=1.41),
-        "AlphaZero":                lambda: AlphaZeroAgent(state_dim=27, n_actions=9, hidden_dims=[128,128], n_simulations=50, c_puct=1.0, lr=1e-3),
+        "Random":                   lambda: RandomAgent(state_dim=27, n_actions=9)
     },
     "quarto": {
-        "Random":                   lambda: RandomAgent(state_dim=114, n_actions=16),
-        "DoubleDeepQLearningWithER": lambda: DQNAgent(state_dim=114, n_actions=16, hidden_dims=[256,256], lr=1e-3, gamma=0.99, double_dqn=True, use_replay=True, buffer_size=20000, batch_size=64, min_buffer_size=1000),
-        "DoubleDeepQLearningWithPER": lambda: DQNAgent(state_dim=114, n_actions=16, hidden_dims=[256,256], lr=1e-3, gamma=0.99, double_dqn=True, use_replay=True, prioritized=True, buffer_size=20000, batch_size=64, min_buffer_size=1000),
-        "REINFORCE_Critic":         lambda: REINFORCEAgent(state_dim=114, n_actions=16, hidden_dims=[256,256], lr=1e-3, gamma=0.99, baseline="critic"),
-        "PPO":                      lambda: PPOAgent(state_dim=114, n_actions=16, hidden_dims=[256,256], lr=3e-4, gamma=0.99),
-        "RandomRollout":            lambda: RandomRolloutAgent(n_rollouts=10, max_depth=20),
-        "MCTS":                     lambda: MCTSAgent(n_simulations=50, c_exploration=1.41),
+        "Random":                   lambda: RandomAgent(state_dim=114, n_actions=16)
     },
 }
 

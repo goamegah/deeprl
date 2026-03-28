@@ -19,7 +19,7 @@ try:
     PYGAME_AVAILABLE = True
 except ImportError:
     PYGAME_AVAILABLE = False
-    print("⚠️ pygame non installé. Installez-le avec: pip install pygame")
+    print("/!\\ pygame non installé. Installez-le avec: pip install pygame")
 
 from deeprl.envs.base import Environment
 from deeprl.agents.base import Agent
@@ -944,7 +944,7 @@ def watch_agent(
         fps: Vitesse d'affichage
     """
     if not PYGAME_AVAILABLE:
-        print("⚠️ pygame non disponible.")
+        print("/!\\ pygame non disponible.")
         return
     
     viewer = GameViewer(
@@ -954,7 +954,7 @@ def watch_agent(
         title=f"Observation: {agent.name}"
     )
     
-    print(f"👀 Observation de {agent.name}")
+    print(f"O:O Observation de {agent.name}")
     viewer.run(n_episodes=n_episodes)
 
 
@@ -983,4 +983,4 @@ if __name__ == "__main__":
         print("\nPour lancer l'interface:")
         print("   python -m deeprl.gui.game_viewer")
         
-        print("\n✅ Tests passés!")
+        print("\n[OK] Tests passés!")
