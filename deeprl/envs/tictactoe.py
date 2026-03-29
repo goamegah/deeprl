@@ -73,16 +73,14 @@ class TicTacToe(Environment):
         [2, 4, 6],  # Diagonale /
     ]
     
-    def __init__(self, use_onehot: bool = True):
+    def __init__(self):
         """
         Crée un environnement TicTacToe.
         
-        Args:
-            use_onehot: Si True, état en one-hot (27 dims), sinon raw (9 dims)
+        État: one-hot (27 dims) — 9 cases × 3 canaux [vide, X, O].
+        Actions: 9 positions (0 à 8).
         """
         super().__init__(name="TicTacToe")
-        
-        self.use_onehot = use_onehot
         
         # Grille de jeu (3x3 aplatie en vecteur de 9)
         self._board = np.zeros(9, dtype=np.int8)
@@ -91,16 +89,8 @@ class TicTacToe(Environment):
         
     @property
     def state_shape(self) -> Tuple[int, ...]:
-        """
-        Forme de l'état.
-        
-        - One-hot: (27,) - 9 cases × 3 valeurs possibles
-        - Raw: (9,) - valeurs directes (-1, 0, +1)
-        """
-        if self.use_onehot:
-            return (27,)
-        else:
-            return (9,)
+        """(27,) — 9 cases × 3 canaux one-hot."""
+        return (27,)
     
     @property
     def n_actions(self) -> int:
@@ -183,17 +173,6 @@ class TicTacToe(Environment):
         return [i for i in range(9) if self._board[i] == self.EMPTY]
     
     def _get_state(self) -> np.ndarray:
-        """Construit la représentation de l'état."""
-        if self.use_onehot:
-            return self._get_onehot_state()
-        else:
-            return self._get_raw_state()
-    
-    def _get_raw_state(self) -> np.ndarray:
-        """État brut: valeurs directes de la grille."""
-        return self._board.astype(np.float32)
-    
-    def _get_onehot_state(self) -> np.ndarray:
         """
         État one-hot: 3 canaux par case.
         
@@ -300,19 +279,16 @@ class TicTacToe(Environment):
                 
                 new_action = rc_to_pos(r, c)
                 
-                # Reconstruire l'état one-hot si nécessaire
-                if self.use_onehot:
-                    new_state = np.zeros(27, dtype=np.float32)
-                    flat = b.flatten()
-                    for i, val in enumerate(flat):
-                        if val == self.EMPTY:
-                            new_state[i * 3] = 1.0
-                        elif val == self.X_VAL:
-                            new_state[i * 3 + 1] = 1.0
-                        else:
-                            new_state[i * 3 + 2] = 1.0
-                else:
-                    new_state = b.flatten().astype(np.float32)
+                # Reconstruire l'état one-hot
+                new_state = np.zeros(27, dtype=np.float32)
+                flat = b.flatten()
+                for i, val in enumerate(flat):
+                    if val == self.EMPTY:
+                        new_state[i * 3] = 1.0
+                    elif val == self.X_VAL:
+                        new_state[i * 3 + 1] = 1.0
+                    else:
+                        new_state[i * 3 + 2] = 1.0
                 
                 symmetries.append((new_state, new_action))
         
@@ -332,13 +308,12 @@ class TicTacToeVsRandom(TicTacToe):
     Cela simplifie l'entraînement: l'agent ne voit que ses propres tours.
     """
     
-    def __init__(self, use_onehot: bool = True, seed: Optional[int] = None):
+    def __init__(self, seed: Optional[int] = None):
         """
         Args:
-            use_onehot: Utiliser encoding one-hot
             seed: Graine pour l'adversaire aléatoire
         """
-        super().__init__(use_onehot=use_onehot)
+        super().__init__()
         self.name = "TicTacToeVsRandom"
         self.rng = np.random.default_rng(seed)
     

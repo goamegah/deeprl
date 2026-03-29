@@ -99,6 +99,10 @@ class GameViewer:
         # Quarto-specific layout data
         self._quarto_piece_rects = {}
         self._quarto_panel_height = 0
+        self._btn_pause_rect = None
+        self._btn_step_rect = None
+        self._btn_restart_rect = None
+        self._restart_requested = False
         
         # Benchmark vitesse (random vs random)
         self.games_per_second = self._benchmark_speed()
@@ -116,43 +120,51 @@ class GameViewer:
         """Calcule la taille de la fenêtre selon l'environnement."""
         env_name = self.env.name.lower()
         
+        # Flag layout Quarto 3 colonnes
+        self._quarto_3col = "quarto" in env_name
+        
         if "line" in env_name:
-            # LineWorld: une ligne horizontale
             self.grid_width = self.env.size
             self.grid_height = 1
         elif "grid" in env_name:
-            # GridWorld: grille 2D
             self.grid_width = self.env.width
             self.grid_height = self.env.height
         elif "tictactoe" in env_name:
-            # TicTacToe: 3x3
             self.grid_width = 3
             self.grid_height = 3
-            self.cell_size = max(self.cell_size, 130)  # min 130px pour lisibilité
-        elif "quarto" in env_name:
-            # Quarto: 4x4 board + pieces panel
+            self.cell_size = max(self.cell_size, 130)
+        elif self._quarto_3col:
             self.grid_width = 4
             self.grid_height = 4
-            self.cell_size = max(self.cell_size, 110)  # min 110px pour lisibilité
+            self.cell_size = max(self.cell_size, 140)
         else:
-            # Défaut
             self.grid_width = 5
             self.grid_height = 5
         
-        # Dimensions en pixels
-        self.game_width = self.grid_width * self.cell_size
-        self.game_height = self.grid_height * self.cell_size
-        
-        # Espace supplémentaire pour le panel de pièces Quarto
-        if "quarto" in self.env.name.lower():
-            self._quarto_panel_height = 380
-            self.game_height += self._quarto_panel_height
-        
-        # Panel d'info à droite
-        self.info_width = 280 if "quarto" in self.env.name.lower() else 250
-        
-        self.window_width = self.game_width + self.info_width
-        self.window_height = max(self.game_height, 520)
+        if self._quarto_3col:
+            # ── Layout 3 colonnes : [info gauche | plateau centre | pièces droite] ──
+            self._q_left_width = 300        # panel info gauche
+            self._q_board_margin = 30       # marge autour du plateau
+            self._q_label_margin = 25       # espace pour les indices col/row
+            board_px = 4 * self.cell_size
+            self._q_board_area = board_px + 2 * self._q_board_margin + self._q_label_margin
+            self._q_right_width = 320       # panel pièces droite
+            self._q_ctrl_bar_h = 40         # barre de contrôles en bas
+            
+            self.game_width = self._q_left_width + self._q_board_area + self._q_right_width
+            board_total = board_px + 2 * self._q_board_margin + self._q_label_margin + self._q_ctrl_bar_h
+            self.game_height = max(board_total, 750)
+            
+            self.info_width = 0  # pas de panel info classique
+            self.window_width = self.game_width
+            self.window_height = self.game_height
+        else:
+            # Layout standard : jeu + panel info à droite
+            self.game_width = self.grid_width * self.cell_size
+            self.game_height = self.grid_height * self.cell_size
+            self.info_width = 250
+            self.window_width = self.game_width + self.info_width
+            self.window_height = max(self.game_height, 520)
     
     def _benchmark_speed(self, n_games: int = 500) -> float:
         """Mesure la vitesse de simulation (parties/sec) avec un joueur random."""
@@ -205,6 +217,7 @@ class GameViewer:
         state = self.env.reset()
         self.total_reward = 0
         self.step_count = 0
+        self._restart_requested = False
         
         while self.running and not self.env.is_game_over:
             # Gérer les événements
@@ -212,6 +225,10 @@ class GameViewer:
             
             if not self.running:
                 break
+            
+            if self._restart_requested:
+                self._restart_requested = False
+                return  # Sort de l'épisode, la boucle run() en lance un nouveau
             
             if self.paused and not self.step_mode:
                 self._render()
@@ -246,11 +263,19 @@ class GameViewer:
             self._render()
             self.clock.tick(self.fps)
         
-        # Fin d'épisode
+        # Fin d'épisode — pause automatique pour voir le résultat
         if self.env.is_game_over:
             self._update_stats()
-            self._render()
-            time.sleep(1.5)  # Pause pour voir le résultat
+            self.paused = True
+            while self.paused and self.running:
+                self._handle_events()
+                if self._restart_requested:
+                    self._restart_requested = False
+                    self.paused = False
+                    return
+                self._render()
+                self.clock.tick(30)
+            self.paused = False
     
     def _handle_events(self) -> Optional[int]:
         """
@@ -272,20 +297,59 @@ class GameViewer:
                     self.paused = not self.paused
                 elif event.key == pygame.K_n:
                     self.step_mode = True
-                elif event.key == pygame.K_UP:
+                elif event.key == pygame.K_r:
+                    self._restart_requested = True
+                elif event.key == pygame.K_F11:
+                    pygame.display.toggle_fullscreen()
+                
+                # Vitesse : +/- toujours, flèches seulement si
+                # pas en mode humain sur un env qui utilise les flèches
+                _arrows_for_env = (
+                    self.agent is None
+                    and any(k in self.env.name.lower() for k in ("line", "grid"))
+                )
+                if event.key in (pygame.K_PLUS, pygame.K_KP_PLUS,
+                                 pygame.K_EQUALS):
                     self.fps = min(60, self.fps + 1)
-                elif event.key == pygame.K_DOWN:
+                elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
                     self.fps = max(1, self.fps - 1)
+                elif not _arrows_for_env:
+                    if event.key in (pygame.K_UP, pygame.K_RIGHT):
+                        self.fps = min(60, self.fps + 1)
+                    elif event.key in (pygame.K_DOWN, pygame.K_LEFT):
+                        self.fps = max(1, self.fps - 1)
                 
                 # Contrôles pour les environnements
                 if self.agent is None:  # Mode humain
                     action = self._key_to_action(event.key)
             
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if self.agent is None:
+                # Boutons UI (Quarto 3-col)
+                if self._handle_button_click(event.pos):
+                    pass  # Action UI traitée
+                elif self.agent is None:
                     action = self._mouse_to_action(event.pos)
         
         return action
+    
+    def _handle_button_click(self, pos: tuple) -> bool:
+        """Gère les clics sur les boutons UI. Retourne True si un bouton a été cliqué."""
+        if not getattr(self, '_quarto_3col', False):
+            return False
+        
+        if self._btn_pause_rect and self._btn_pause_rect.collidepoint(pos):
+            self.paused = not self.paused
+            return True
+        
+        if self._btn_step_rect and self._btn_step_rect.collidepoint(pos):
+            self.step_mode = True
+            return True
+        
+        if self._btn_restart_rect and self._btn_restart_rect.collidepoint(pos):
+            self._restart_requested = True
+            return True
+        
+        return False
     
     def _key_to_action(self, key: int) -> Optional[int]:
         """Convertit une touche en action."""
@@ -348,38 +412,43 @@ class GameViewer:
     def _mouse_to_action(self, pos: tuple) -> Optional[int]:
         """Convertit un clic souris en action."""
         x, y = pos
+        env_name = self.env.name.lower()
         
-        # Vérifier qu'on est dans la zone de jeu
+        if self._quarto_3col and "quarto" in env_name:
+            # ── Layout 3 colonnes ──
+            cs = self.cell_size
+            bx = self._q_left_width + self._q_board_margin + self._q_label_margin
+            by = self._q_board_margin + self._q_label_margin
+            board_px = 4 * cs
+            
+            if self.env._phase == "place":
+                # Clic sur le plateau (zone centrale)
+                if bx <= x < bx + board_px and by <= y < by + board_px:
+                    c = (x - bx) // cs
+                    r = (y - by) // cs
+                    action = r * 4 + c
+                    if action in self.env.get_available_actions():
+                        return action
+            else:
+                # Phase give : clic sur une pièce dans le panel droit
+                for piece_id, rect in self._quarto_piece_rects.items():
+                    if rect.collidepoint(x, y):
+                        action = piece_id + 16
+                        if action in self.env.get_available_actions():
+                            return action
+            return None
+        
+        # Layouts standards
         if x >= self.game_width:
             return None
         
         col = x // self.cell_size
         row = y // self.cell_size
         
-        env_name = self.env.name.lower()
-        
         if "tictactoe" in env_name:
             action = row * 3 + col
             if action in self.env.get_available_actions():
                 return action
-        
-        elif "quarto" in env_name:
-            board_px = 4 * self.cell_size
-            if self.env._phase == "place":
-                # Clic sur une case vide du plateau
-                if x < board_px and y < board_px:
-                    c = x // self.cell_size
-                    r = y // self.cell_size
-                    action = r * 4 + c
-                    if action in self.env.get_available_actions():
-                        return action
-            else:
-                # Phase give : clic sur une pièce dans le panel
-                for piece_id, rect in self._quarto_piece_rects.items():
-                    if rect.collidepoint(x, y):
-                        action = piece_id + 16  # actions give = 16-31
-                        if action in self.env.get_available_actions():
-                            return action
         
         return None
     
@@ -387,11 +456,16 @@ class GameViewer:
         """Affiche l'état actuel."""
         self.screen.fill(self.BG_COLOR)
         
-        # Dessiner le jeu
-        self._draw_game()
-        
-        # Dessiner le panel d'info
-        self._draw_info_panel()
+        if self._quarto_3col:
+            # Layout 3 colonnes Quarto
+            self._draw_quarto_left_panel()
+            self._draw_quarto()
+            self._draw_quarto_right_panel()
+            self._draw_quarto_ctrl_bar()
+        else:
+            # Layout standard
+            self._draw_game()
+            self._draw_info_panel()
         
         pygame.display.flip()
     
@@ -561,173 +635,484 @@ class GameViewer:
     
     def _draw_quarto_piece(self, cx, cy, piece_id, size):
         """
-        Dessine une pièce Quarto centrée en (cx, cy).
+        Dessine une pièce Quarto en pseudo-3D centrée en (cx, cy).
         
         Attributs visuels:
-        - tall/short → taille du symbole
+        - tall/short → hauteur du corps
         - dark/light → couleur (brun foncé / beige)
-        - solid/hollow → rempli / contour seul
-        - square/round → carré / cercle
+        - solid/hollow → rempli / trou au sommet
+        - square/round → carré / cylindre
         """
         tall = bool(piece_id & 1)
         dark = bool(piece_id & 2)
         solid = bool(piece_id & 4)
         square = bool(piece_id & 8)
         
-        # Facteur de taille : grand vs petit
-        s = int(size * (1.0 if tall else 0.6))
-        if s < 3:
-            s = 3
+        s = int(size)
+        if s < 4:
+            s = 4
+        
+        # Hauteur du corps : grand vs petit
+        body_h = int(s * (1.8 if tall else 1.1))
         
         # Couleurs
         if dark:
-            fill_color = (139, 90, 43)       # brun foncé
-            outline_color = (90, 55, 20)
+            face_color = (120, 75, 35)
+            side_color = (90, 55, 20)
+            top_color = (139, 90, 43)
+            outline = (70, 40, 12)
         else:
-            fill_color = (245, 222, 179)      # beige
-            outline_color = (180, 150, 100)
+            face_color = (230, 205, 160)
+            side_color = (200, 175, 130)
+            top_color = (245, 222, 179)
+            outline = (170, 140, 95)
         
-        lw = max(2, int(size * 0.12))  # épaisseur du contour
         icx, icy = int(cx), int(cy)
+        lw = max(1, int(s * 0.06))
+        
+        # Décalage perspective (pseudo 3D)
+        persp = int(s * 0.25)
         
         if square:
-            rect = pygame.Rect(icx - s, icy - s, s * 2, s * 2)
-            if solid:
-                pygame.draw.rect(self.screen, fill_color, rect)
-            pygame.draw.rect(self.screen, outline_color, rect, lw)
+            # ── Cube / boîte ──
+            hw = s  # demi-largeur
+            # Face avant (rectangle)
+            front = pygame.Rect(icx - hw, icy - body_h // 2 + persp, hw * 2, body_h)
+            pygame.draw.rect(self.screen, face_color, front)
+            pygame.draw.rect(self.screen, outline, front, lw)
+            
+            # Face droite (parallélogramme)
+            right_pts = [
+                (icx + hw, icy - body_h // 2 + persp),
+                (icx + hw + persp, icy - body_h // 2),
+                (icx + hw + persp, icy - body_h // 2 + body_h - persp),
+                (icx + hw, icy - body_h // 2 + persp + body_h),
+            ]
+            pygame.draw.polygon(self.screen, side_color, right_pts)
+            pygame.draw.polygon(self.screen, outline, right_pts, lw)
+            
+            # Face du dessus (parallélogramme)
+            top_pts = [
+                (icx - hw, icy - body_h // 2 + persp),
+                (icx - hw + persp, icy - body_h // 2),
+                (icx + hw + persp, icy - body_h // 2),
+                (icx + hw, icy - body_h // 2 + persp),
+            ]
+            pygame.draw.polygon(self.screen, top_color, top_pts)
+            pygame.draw.polygon(self.screen, outline, top_pts, lw)
+            
+            # hollow : trou sur le dessus
+            if not solid:
+                hole_cx = icx + persp // 2
+                hole_cy = icy - body_h // 2 + persp // 2
+                hole_r = int(s * 0.35)
+                dark_hole = (50, 30, 10) if dark else (150, 120, 80)
+                pygame.draw.ellipse(
+                    self.screen, dark_hole,
+                    (hole_cx - hole_r, hole_cy - hole_r // 2, hole_r * 2, hole_r),
+                )
+                pygame.draw.ellipse(
+                    self.screen, outline,
+                    (hole_cx - hole_r, hole_cy - hole_r // 2, hole_r * 2, hole_r),
+                    lw,
+                )
         else:
-            if solid:
-                pygame.draw.circle(self.screen, fill_color, (icx, icy), s)
-            pygame.draw.circle(self.screen, outline_color, (icx, icy), s, lw)
+            # ── Cylindre ──
+            hw = s  # demi-largeur
+            ell_h = int(s * 0.4)  # hauteur de l'ellipse
+            
+            top_cy = icy - body_h // 2
+            bot_cy = icy + body_h // 2
+            
+            # Corps du cylindre (rectangle entre les deux ellipses)
+            body_rect = pygame.Rect(icx - hw, top_cy, hw * 2, body_h)
+            pygame.draw.rect(self.screen, face_color, body_rect)
+            
+            # Ellipse du bas
+            pygame.draw.ellipse(
+                self.screen, side_color,
+                (icx - hw, bot_cy - ell_h // 2, hw * 2, ell_h),
+            )
+            pygame.draw.ellipse(
+                self.screen, outline,
+                (icx - hw, bot_cy - ell_h // 2, hw * 2, ell_h),
+                lw,
+            )
+            
+            # Bords verticaux
+            pygame.draw.line(self.screen, outline, (icx - hw, top_cy), (icx - hw, bot_cy), lw)
+            pygame.draw.line(self.screen, outline, (icx + hw, top_cy), (icx + hw, bot_cy), lw)
+            
+            # Ellipse du haut
+            pygame.draw.ellipse(
+                self.screen, top_color,
+                (icx - hw, top_cy - ell_h // 2, hw * 2, ell_h),
+            )
+            pygame.draw.ellipse(
+                self.screen, outline,
+                (icx - hw, top_cy - ell_h // 2, hw * 2, ell_h),
+                lw,
+            )
+            
+            # hollow : trou au sommet
+            if not solid:
+                hole_r = int(s * 0.55)
+                hole_ell_h = int(ell_h * 0.6)
+                dark_hole = (50, 30, 10) if dark else (150, 120, 80)
+                pygame.draw.ellipse(
+                    self.screen, dark_hole,
+                    (icx - hole_r, top_cy - hole_ell_h // 2, hole_r * 2, hole_ell_h),
+                )
+                pygame.draw.ellipse(
+                    self.screen, outline,
+                    (icx - hole_r, top_cy - hole_ell_h // 2, hole_r * 2, hole_ell_h),
+                    lw,
+                )
     
     def _draw_quarto(self):
         """
-        Dessine le plateau Quarto 4×4 et le panel de pièces disponibles.
+        Dessine le plateau Quarto 4×4 dans la zone centrale (layout 3 colonnes).
         
-        Phase PLACE : le joueur clique sur une case vide du plateau.
-        Phase GIVE  : le joueur clique sur une pièce disponible dans le panel.
+        Le plateau est entouré d'indices ligne/colonne.
+        Phase PLACE : surbrillance verte sur les cases vides.
         """
         cs = self.cell_size
         board_px = 4 * cs
         
-        # ── Plateau 4×4 ──
+        # Origine du plateau dans la zone centrale
+        bx = self._q_left_width + self._q_board_margin + self._q_label_margin
+        by = self._q_board_margin + self._q_label_margin
+        
+        # Fond zone plateau (brun)
+        board_bg = pygame.Rect(
+            self._q_left_width, 0,
+            self._q_board_area, self.window_height - self._q_ctrl_bar_h
+        )
+        pygame.draw.rect(self.screen, (140, 110, 75), board_bg)
+        
+        # Indices colonnes (au-dessus)
+        for col in range(4):
+            txt = self.font.render(str(col), True, (220, 210, 190))
+            self.screen.blit(
+                txt, txt.get_rect(center=(bx + col * cs + cs // 2, by - 18))
+            )
+        
+        # Indices lignes (à gauche)
+        for row in range(4):
+            txt = self.font.render(str(row), True, (220, 210, 190))
+            self.screen.blit(
+                txt, txt.get_rect(center=(bx - 18, by + row * cs + cs // 2))
+            )
+        
+        # ── Cases du plateau ──
         for row in range(4):
             for col in range(4):
-                x = col * cs
-                y = row * cs
+                x = bx + col * cs
+                y = by + row * cs
                 pos = row * 4 + col
-                rect = pygame.Rect(x, y, cs, cs)
                 
                 piece_id = self.env._board[pos]
                 
-                # Fond : surbrillance verte pour les cases jouables
-                if self.env._phase == "place" and piece_id < 0:
-                    bg = (235, 245, 235)
-                else:
-                    bg = self.LIGHT_GRAY
+                # Fond de cellule
+                margin = 4
+                inner = pygame.Rect(x + margin, y + margin, cs - 2 * margin, cs - 2 * margin)
                 
-                pygame.draw.rect(self.screen, bg, rect)
-                pygame.draw.rect(self.screen, self.BLACK, rect, 2)
+                if self.env._phase == "place" and piece_id < 0:
+                    bg = (40, 140, 50)  # vert foncé = jouable
+                else:
+                    bg = (50, 130, 55) if piece_id < 0 else (45, 120, 50)
+                
+                pygame.draw.rect(self.screen, bg, inner, border_radius=8)
                 
                 if piece_id >= 0:
                     self._draw_quarto_piece(
                         x + cs // 2, y + cs // 2,
-                        piece_id, cs * 0.38
+                        piece_id, cs * 0.28
+                    )
+                    # ID de la pièce en dessous
+                    lbl = self.font_small.render(str(piece_id), True, (200, 230, 200))
+                    self.screen.blit(lbl, lbl.get_rect(center=(x + cs // 2, y + cs - 14)))
+    
+    def _draw_quarto_left_panel(self):
+        """Dessine le panel info à gauche pour le layout Quarto 3 colonnes.
+        
+        Utilise des positions Y FIXES pour éviter le scintillement
+        quand _current_piece alterne entre None et une valeur.
+        """
+        pw = self._q_left_width
+        x = 18
+        
+        # Fond du panel
+        panel = pygame.Rect(0, 0, pw, self.window_height - self._q_ctrl_bar_h)
+        pygame.draw.rect(self.screen, (65, 60, 55), panel)
+        
+        # ═══════ Zone 1 : Joueur + mode (y = 18..80) ═══════
+        Y_PLAYER = 18
+        
+        # Déterminer qui est le joueur courant (humain ou IA)
+        cp = self.env._current_player
+        is_human_turn = False
+        opponent_name = None
+        if hasattr(self, 'opponent_agent'):
+            # Mode HumanVsAgent
+            opponent_name = self.opponent_agent.name
+            is_human_turn = (cp == self.human_player)
+        
+        if is_human_turn:
+            player_color = (100, 220, 100)
+            player_label = f"Joueur {cp} — Votre tour"
+        elif opponent_name and not is_human_turn:
+            player_color = (220, 160, 80)
+            player_label = f"Joueur {cp} — {opponent_name}"
+        else:
+            player_color = (100, 200, 100)
+            player_label = f"Joueur {cp}"
+        
+        player_txt = self.font.render(player_label, True, player_color)
+        # Tronquer si nécessaire
+        if player_txt.get_width() > pw - 36:
+            player_txt = self.font.render(f"J{cp} — {'Vous' if is_human_turn else opponent_name or ''}", True, player_color)
+        self.screen.blit(player_txt, (x, Y_PLAYER))
+        
+        if self.agent:
+            mode_name = f"Observation: {self.agent.name}"
+        elif opponent_name:
+            mode_name = f"Humain vs {opponent_name}"
+        else:
+            mode_name = "Humain"
+        mode_txt = self.font_small.render(mode_name, True, (180, 180, 180))
+        self.screen.blit(mode_txt, (x, Y_PLAYER + 32))
+        
+        # ═══════ Zone 2 : Phase + attributs (y = 82..140) ═══════
+        Y_PHASE = 82
+        pygame.draw.line(self.screen, (100, 95, 85), (x, Y_PHASE - 4), (pw - 18, Y_PHASE - 4), 1)
+        
+        if self.env._current_piece is not None:
+            phase_str = f"J{self.env._current_player} — PLACE la pièce #{self.env._current_piece}"
+        else:
+            phase_str = f"J{self.env._current_player} — DONNE une pièce"
+        
+        desc_surf = self.font_small.render(phase_str, True, self.WHITE)
+        if desc_surf.get_width() > pw - 36:
+            # Tronquer
+            short = "PLACE" if self.env._current_piece is not None else "DONNE"
+            desc_surf = self.font_small.render(short, True, self.WHITE)
+        self.screen.blit(desc_surf, (x, Y_PHASE))
+        
+        # Attributs (toujours affichés, ou "—" si pas de pièce)
+        Y_ATTRS = Y_PHASE + 24
+        if self.env._current_piece is not None:
+            p = self.env._current_piece
+            attrs = [
+                "GRAND" if p & 1 else "COURT",
+                "FONCÉ" if p & 2 else "CLAIR",
+                "PLEIN" if p & 4 else "CREUX",
+                "CARRÉ" if p & 8 else "ROND",
+            ]
+            attr_str = "-".join(attrs)
+        else:
+            attr_str = "—"
+        attr_txt = self.font_small.render(attr_str, True, (180, 170, 150))
+        self.screen.blit(attr_txt, (x, Y_ATTRS))
+        
+        # ═══════ Zone 3 : Aperçu pièce (y = 148..290) — TOUJOURS affichée ═══════
+        Y_PREVIEW = 148
+        pygame.draw.line(self.screen, (100, 95, 85), (x, Y_PREVIEW - 6), (pw - 18, Y_PREVIEW - 6), 1)
+        
+        label = self.font_small.render("Pièce à placer :", True, (150, 145, 135))
+        self.screen.blit(label, (x, Y_PREVIEW))
+        
+        preview_rect = pygame.Rect(x, Y_PREVIEW + 26, pw - 36, 100)
+        pygame.draw.rect(self.screen, (80, 75, 68), preview_rect, border_radius=8)
+        
+        if self.env._current_piece is not None:
+            self._draw_quarto_piece(
+                x + preview_rect.width // 2,
+                Y_PREVIEW + 26 + 45,
+                self.env._current_piece,
+                28,
+            )
+            id_txt = self.font.render(
+                str(self.env._current_piece), True, (200, 190, 170)
+            )
+            self.screen.blit(
+                id_txt,
+                id_txt.get_rect(center=(x + preview_rect.width // 2, Y_PREVIEW + 26 + 80)),
+            )
+        else:
+            none_txt = self.font_small.render("Aucune", True, (120, 115, 108))
+            self.screen.blit(
+                none_txt,
+                none_txt.get_rect(center=(x + preview_rect.width // 2, Y_PREVIEW + 26 + 50)),
+            )
+        
+        # ═══════ Zone 4 : Boutons (y = 300..380) ═══════
+        Y_BUTTONS = 300
+        pygame.draw.line(self.screen, (100, 95, 85), (x, Y_BUTTONS - 6), (pw - 18, Y_BUTTONS - 6), 1)
+        
+        btn_w = 125
+        btn_h = 34
+        
+        # ── Bouton Pause / Reprendre ──
+        self._btn_pause_rect = pygame.Rect(x, Y_BUTTONS, btn_w, btn_h)
+        if self.paused:
+            pause_bg = (50, 130, 60)
+            pause_label = "▶ Reprendre"
+        else:
+            pause_bg = (140, 90, 40)
+            pause_label = "⏸ Pause"
+        pygame.draw.rect(self.screen, pause_bg, self._btn_pause_rect, border_radius=5)
+        pygame.draw.rect(self.screen, (180, 170, 155), self._btn_pause_rect, 1, border_radius=5)
+        p_lbl = self.font_small.render(pause_label, True, self.WHITE)
+        self.screen.blit(p_lbl, p_lbl.get_rect(center=self._btn_pause_rect.center))
+        
+        # ── Bouton Avancer (un pas) ──
+        self._btn_step_rect = pygame.Rect(x + btn_w + 10, Y_BUTTONS, btn_w, btn_h)
+        step_bg = (70, 120, 140) if self.paused else (80, 75, 68)
+        pygame.draw.rect(self.screen, step_bg, self._btn_step_rect, border_radius=5)
+        pygame.draw.rect(self.screen, (120, 150, 170) if self.paused else (100, 95, 85), self._btn_step_rect, 1, border_radius=5)
+        s_lbl = self.font_small.render("▶| Avancer", True, self.WHITE if self.paused else (120, 115, 108))
+        self.screen.blit(s_lbl, s_lbl.get_rect(center=self._btn_step_rect.center))
+        
+        # ── Bouton Restart ──
+        Y_RESTART = Y_BUTTONS + btn_h + 10
+        self._btn_restart_rect = pygame.Rect(x, Y_RESTART, btn_w, btn_h)
+        pygame.draw.rect(self.screen, (100, 60, 55), self._btn_restart_rect, border_radius=5)
+        pygame.draw.rect(self.screen, (150, 90, 80), self._btn_restart_rect, 1, border_radius=5)
+        r_lbl = self.font_small.render("↺ Restart", True, self.WHITE)
+        self.screen.blit(r_lbl, r_lbl.get_rect(center=self._btn_restart_rect.center))
+        
+        # ═══════ Zone 5 : Statistiques (y = 400..530) ═══════
+        Y_STATS = 400
+        pygame.draw.line(self.screen, (100, 95, 85), (x, Y_STATS - 6), (pw - 18, Y_STATS - 6), 1)
+        
+        stats_items = [
+            (f"Tour : {self.step_count}", (180, 175, 165)),
+            (f"Épisode : {self.episode_count + 1}", (180, 175, 165)),
+            (f"Vitesse : {self.games_per_second:,.0f} p/s", (130, 170, 230)),
+        ]
+        for i, (txt, color) in enumerate(stats_items):
+            surf = self.font_small.render(txt, True, color)
+            self.screen.blit(surf, (x, Y_STATS + i * 24))
+        
+        # Scores
+        Y_SCORES = Y_STATS + 85
+        score_data = [
+            ("V", str(self.wins), (100, 200, 100)),
+            ("D", str(self.losses), (220, 100, 100)),
+            ("N", str(self.draws), (180, 180, 180)),
+        ]
+        for i, (lbl, val, color) in enumerate(score_data):
+            line = self.font_small.render(f"{lbl}: {val}", True, color)
+            self.screen.blit(line, (x, Y_SCORES + i * 22))
+        
+        # ═══════ Zone 6 : État du jeu (bas du panel) ═══════
+        Y_STATUS = self.window_height - self._q_ctrl_bar_h - 75
+        if self.paused and not self.env.is_game_over:
+            p_txt = self.font.render("⏸ PAUSE", True, self.ORANGE)
+            self.screen.blit(p_txt, (x, Y_STATUS))
+        elif self.env.is_game_over:
+            if hasattr(self.env, '_winner'):
+                if self.env._winner is not None and self.env._winner >= 0:
+                    win_color = (100, 220, 100)
+                    e_txt = self.font.render(
+                        f"Joueur {self.env._winner} gagne !", True, win_color
                     )
                 else:
-                    # Numéro de position
-                    txt = self.font_small.render(str(pos), True, self.GRAY)
-                    self.screen.blit(txt, txt.get_rect(center=(x + cs // 2, y + cs // 2)))
-        
-        # ── Panel sous le plateau ──
-        py = board_px + 8
-        
-        # Phase et joueur
-        phase_str = "PLACER" if self.env._phase == "place" else "DONNER"
-        player_str = f"Joueur {self.env._current_player + 1}"
-        info_line = f"{player_str} — {phase_str}"
-        self.screen.blit(self.font_small.render(info_line, True, self.BLACK), (5, py))
-        py += 24
-        
-        # Pièce courante à placer
-        if self.env._current_piece is not None:
-            self.screen.blit(
-                self.font_small.render("Piece:", True, self.BLACK), (8, py)
+                    e_txt = self.font.render("MATCH NUL", True, (180, 180, 180))
+            else:
+                e_txt = self.font.render("FIN", True, self.GRAY)
+            self.screen.blit(e_txt, (x, Y_STATUS))
+            # Indication pour continuer
+            hint = self.font_small.render(
+                "[R] Restart  [SPACE] Continuer", True, (150, 145, 135)
             )
-            self._draw_quarto_piece(80, py + 12, self.env._current_piece, 18)
-            # Attributs texte
-            p = self.env._current_piece
-            attrs = ""
-            attrs += "G" if p & 1 else "p"
-            attrs += "F" if p & 2 else "c"
-            attrs += "P" if p & 4 else "x"
-            attrs += "C" if p & 8 else "r"
-            self.screen.blit(
-                self.font_small.render(f"[{attrs}]  id={p}", True, self.GRAY), (110, py)
-            )
-            py += 32
-        else:
-            py += 4
+            self.screen.blit(hint, (x, Y_STATUS + 32))
+    
+    def _draw_quarto_right_panel(self):
+        """Dessine le panel de pièces disponibles à droite."""
+        pw = self._q_right_width
+        rx = self._q_left_width + self._q_board_area
+        panel = pygame.Rect(rx, 0, pw, self.window_height - self._q_ctrl_bar_h)
+        pygame.draw.rect(self.screen, (65, 60, 55), panel)
         
-        # Titre du panel de pièces
+        x = rx + 18
+        y = 18
+        
+        # Titre
+        title = self.font.render("Pièces disponibles", True, self.WHITE)
+        self.screen.blit(title, (x, y))
+        y += 32
+        
         if self.env._phase == "give":
-            self.screen.blit(
-                self.font_small.render("Choisir une piece a donner:", True, self.GREEN),
-                (5, py),
-            )
-        else:
-            self.screen.blit(
-                self.font_small.render("Pieces disponibles:", True, self.GRAY),
-                (5, py),
-            )
-        py += 24
+            hint = self.font_small.render("↓ Clique pour choisir", True, (180, 170, 150))
+            self.screen.blit(hint, (x, y))
+        y += 28
         
-        # Grille de pièces (4 lignes × 4 colonnes)
-        piece_spacing = max(1, (board_px - 16) // 4)
-        piece_draw_size = cs * 0.20
-        row_height = 65
+        # Grille 4×4 de pièces
+        piece_size = 22
+        col_spacing = (pw - 36) // 4
+        row_h = int((self.window_height - self._q_ctrl_bar_h - y - 20) / 4)
+        row_h = min(row_h, 140)
         
         self._quarto_piece_rects = {}
         
         for i in range(16):
             col = i % 4
             row_off = i // 4
-            cx = 8 + col * piece_spacing + piece_spacing // 2
-            cy = py + row_off * row_height + 26
+            cx = x + col * col_spacing + col_spacing // 2
+            cy = y + row_off * row_h + row_h // 2
             
             available = i in self.env._available_pieces
             
             cell_rect = pygame.Rect(
-                cx - piece_spacing // 2 + 4,
-                cy - 22,
-                piece_spacing - 8,
-                52,
+                cx - col_spacing // 2 + 4,
+                cy - row_h // 2 + 4,
+                col_spacing - 8,
+                row_h - 8,
             )
             
             if available:
                 self._quarto_piece_rects[i] = cell_rect
                 if self.env._phase == "give":
-                    pygame.draw.rect(self.screen, (225, 245, 225), cell_rect)
-                    pygame.draw.rect(self.screen, self.GREEN, cell_rect, 2)
+                    pygame.draw.rect(self.screen, (40, 100, 45), cell_rect, border_radius=8)
+                    pygame.draw.rect(self.screen, (60, 150, 65), cell_rect, 2, border_radius=8)
                 else:
-                    pygame.draw.rect(self.screen, self.WHITE, cell_rect)
-                    pygame.draw.rect(self.screen, self.GRAY, cell_rect, 1)
-                self._draw_quarto_piece(cx, cy, i, piece_draw_size)
+                    pygame.draw.rect(self.screen, (75, 70, 63), cell_rect, border_radius=8)
+                    pygame.draw.rect(self.screen, (100, 95, 85), cell_rect, 1, border_radius=8)
+                self._draw_quarto_piece(cx, cy - 5, i, piece_size)
             else:
-                pygame.draw.rect(self.screen, (240, 240, 240), cell_rect)
-                pygame.draw.line(
-                    self.screen, self.GRAY,
-                    (cell_rect.left + 2, cell_rect.top + 2),
-                    (cell_rect.right - 2, cell_rect.bottom - 2), 1,
-                )
+                pygame.draw.rect(self.screen, (55, 52, 48), cell_rect, border_radius=8)
+                # Indicateur pièce utilisée
+                id_used = self.font_small.render(f"#{i}", True, (90, 85, 78))
+                self.screen.blit(id_used, id_used.get_rect(center=(cx, cy)))
             
-            # Étiquette hexadécimale
-            lbl_color = self.BLACK if available else self.GRAY
-            lbl = self.font_small.render(f"{i:X}", True, lbl_color)
-            self.screen.blit(lbl, lbl.get_rect(center=(cx, cy + 28)))
+            # Étiquette ID
+            lbl_color = self.WHITE if available else (90, 85, 78)
+            lbl = self.font_small.render(str(i), True, lbl_color)
+            self.screen.blit(lbl, lbl.get_rect(center=(cx, cy + row_h // 2 - 16)))
+    
+    def _draw_quarto_ctrl_bar(self):
+        """Dessine la barre de contrôles en bas de la fenêtre Quarto."""
+        bar_y = self.window_height - self._q_ctrl_bar_h
+        bar_rect = pygame.Rect(0, bar_y, self.window_width, self._q_ctrl_bar_h)
+        pygame.draw.rect(self.screen, (50, 47, 42), bar_rect)
+        pygame.draw.line(
+            self.screen, (80, 75, 68), (0, bar_y), (self.window_width, bar_y), 1
+        )
+        
+        ctrls = (
+            "[R] Restart  [N] Avancer  [+/-] Vitesse: "
+            f"{1.0/self.fps:.1f}s  [F11] Plein écran  "
+            "[SPACE] Pause  [ESC] Quitter"
+        )
+        txt = self.font_small.render(ctrls, True, (170, 165, 155))
+        self.screen.blit(txt, (15, bar_y + 10))
     
     def _draw_info_panel(self):
         """Dessine le panel d'informations."""
+        if getattr(self, '_quarto_3col', False):
+            return
         px = self.game_width
         # Fond du panel
         panel_rect = pygame.Rect(px, 0, self.info_width, self.window_height)
@@ -799,7 +1184,8 @@ class GameViewer:
         controls = [
             "SPACE: Pause",
             "N: Step-by-step",
-            "↑/↓: Vitesse",
+            "+/-: Vitesse",
+            "F11: Plein écran",
             "ESC: Quitter",
             f"FPS: {self.fps}",
         ]
@@ -834,15 +1220,12 @@ class GameViewer:
             self.screen.blit(pause_text, (x, state_y))
         elif self.env.is_game_over:
             if hasattr(self.env, '_winner'):
-                if self.env._winner == 0:
+                if self.env._winner is not None and self.env._winner >= 0:
                     pygame.draw.rect(self.screen, (200, 240, 200), state_rect)
-                    end_text = self.font.render("VICTOIRE!", True, self.GREEN)
-                elif self.env._winner == 1:
-                    pygame.draw.rect(self.screen, (245, 210, 210), state_rect)
-                    end_text = self.font.render("DÉFAITE", True, self.RED)
+                    end_text = self.font.render(f"Joueur {self.env._winner} gagne!", True, self.GREEN)
                 else:
                     pygame.draw.rect(self.screen, self.LIGHT_GRAY, state_rect)
-                    end_text = self.font.render("NUL", True, self.GRAY)
+                    end_text = self.font.render("MATCH NUL", True, self.GRAY)
             else:
                 pygame.draw.rect(self.screen, self.LIGHT_GRAY, state_rect)
                 end_text = self.font.render("FIN", True, self.GRAY)
@@ -913,8 +1296,13 @@ class HumanVsAgentViewer(GameViewer):
         state = self.env.reset()
         self.total_reward = 0
         self.step_count = 0
+        self._restart_requested = False
         
         while self.running and not self.env.is_game_over:
+            if self._restart_requested:
+                self._restart_requested = False
+                return
+            
             # Determiner qui joue
             current_player = self.env.current_player
             
@@ -927,7 +1315,7 @@ class HumanVsAgentViewer(GameViewer):
                 # Petite pause pour que l'humain voie l'action
                 time.sleep(0.5)
             
-            if not self.running:
+            if not self.running or self._restart_requested:
                 break
             
             if action is not None:
@@ -940,18 +1328,26 @@ class HumanVsAgentViewer(GameViewer):
             self._render()
             self.clock.tick(self.fps)
         
-        # Fin d'episode
+        # Fin d'episode — pause automatique pour voir le résultat
         if self.env.is_game_over:
             self._update_stats_versus()
-            self._render()
-            time.sleep(2.0)  # Pause plus longue pour voir le resultat
+            self.paused = True
+            while self.paused and self.running:
+                self._handle_events()
+                if self._restart_requested:
+                    self._restart_requested = False
+                    self.paused = False
+                    return
+                self._render()
+                self.clock.tick(30)
+            self.paused = False
     
     def _wait_for_human_action(self) -> Optional[int]:
         """Attend une action valide de l'humain."""
         while self.running:
             action = self._handle_events()
             
-            if not self.running:
+            if not self.running or self._restart_requested:
                 return None
             
             if self.paused:
@@ -993,6 +1389,8 @@ class HumanVsAgentViewer(GameViewer):
     
     def _draw_info_panel(self):
         """Dessine le panel d'info avec indication du tour."""
+        if getattr(self, '_quarto_3col', False):
+            return
         super()._draw_info_panel()
         
         x = self.game_width + 15

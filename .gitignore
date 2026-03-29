@@ -211,4 +211,3 @@ local/
 # Experiment results and artifacts
 results/
 wandb/
-AGENTS.md

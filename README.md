@@ -1,102 +1,99 @@
-# DeepRL - Bibliotheque de Deep Reinforcement Learning
+# DeepRL — Bibliothèque de Deep Reinforcement Learning
 
-Une bibliotheque pedagogique de Deep Reinforcement Learning avec PyTorch.
+Bibliothèque pédagogique de Deep Reinforcement Learning en PyTorch, développée dans le cadre d'un projet universitaire.
 
 ## Objectif
 
-Evaluer et comparer differentes techniques d'apprentissage par renforcement profond sur plusieurs environnements.
-
-## Structure du Projet
-
-```
-deeprl/
-├── envs/                    # Environnements
-│   ├── base.py             # Interface abstraite Environment
-│   ├── line_world.py       # LineWorld (1D)
-│   ├── grid_world.py       # GridWorld (2D)
-│   ├── tictactoe.py        # TicTacToe
-│   └── quarto.py           # Quarto
-├── agents/                  # Agents
-│   ├── base.py             # Interface abstraite Agent
-│   ├── random_agent.py     # Agent aleatoire
-│   ├── tabular/            # Methodes tabulaires
-│   │   └── q_learning.py
-│   ├── value_based/        # Methodes basees sur la valeur
-│   │   ├── dqn.py
-│   │   ├── ddqn.py
-│   │   └── prioritized_replay.py
-│   ├── policy_based/       # Methodes basees sur la politique
-│   │   ├── reinforce.py
-│   │   └── ppo.py
-│   └── planning/           # Methodes de planification
-│       ├── mcts.py
-│       ├── alphazero.py
-│       └── muzero.py
-├── networks/               # Reseaux de neurones
-│   ├── mlp.py             # Multi-Layer Perceptron
-│   └── shared.py          # Reseaux partages Actor-Critic
-├── memory/                 # Memoires de replay
-│   ├── replay_buffer.py
-│   └── prioritized_buffer.py
-├── training/              # Boucles d'entrainement
-│   ├── trainer.py
-│   ├── evaluator.py
-│   └── benchmark.py       # Systeme de benchmarking avec graphiques
-├── utils/                 # Utilitaires
-│   ├── metrics.py
-│   └── visualization.py
-├── gui/                   # Interface graphique
-│   └── game_viewer.py
-└── main.py               # Point d'entree
-```
+Implémenter et comparer différentes techniques d'apprentissage par renforcement sur le jeu **Quarto** (jeu de stratégie à 2 joueurs), avec des environnements de test progressifs (LineWorld, GridWorld, TicTacToe).
 
 ## Installation
 
 ```bash
-# Creer un environnement virtuel
+# Cloner et créer l'environnement
+git clone <repo_url> && cd deeprl
 python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# .venv\Scripts\activate   # Windows
-
-# Installer les dependances
+source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+Ou avec `uv` :
+
+```bash
+uv sync
+source .venv/bin/activate
+```
+
+## Utilisation rapide
+
+```bash
+# Démos console (avec mesure parties/seconde)
+python main.py --env quarto          # Random vs Random sur Quarto
+python main.py --env tictactoe       # Random vs Random sur TicTacToe
+python main.py --env gridworld       # Random vs Q-Learning sur GridWorld
+
+# Interface graphique — observer un agent
+python main.py --gui --env quarto
+
+# Jouer contre l'IA
+python main.py --play --env quarto
+
+# Humain vs Humain
+python main.py --pvp --env quarto
+
+# Entraînement complet + benchmarks
+python run_experiments.py
+```
+
+Voir [COMMANDS.md](COMMANDS.md) pour la liste complète des commandes et raccourcis GUI.
+
+## Structure du projet
+
+```
+deeprl/
+├── deeprl/
+│   ├── envs/               # Environnements (LineWorld, GridWorld, TicTacToe, Quarto)
+│   ├── agents/             # Agents (RandomAgent, HumanAgent, TabularQLearning)
+│   ├── training/           # Trainer, Evaluator, Benchmark
+│   └── gui/                # Interface Pygame (GameViewer, HumanVsAgentViewer)
+├── main.py                 # Démos + GUI (--gui, --play, --pvp)
+├── run_experiments.py       # Entraînement + métriques
+├── SPECS.md                # Spécification technique complète
+└── COMMANDS.md             # Référence des commandes
 ```
 
 ## Environnements
 
-| Environnement | Type | Description |
-|--------------|------|-------------|
-| LineWorld | Test | Monde 1D simple |
-| GridWorld | Test | Monde 2D avec obstacles |
-| TicTacToe | Test | Jeu a 2 joueurs |
-| Quarto | Avance | Jeu de plateau complexe |
+| Environnement | Type | State dim | Actions | Joueurs |
+|---------------|------|-----------|---------|---------|
+| LineWorld | Navigation 1D | 7 | 2 (←/→) | 1 |
+| GridWorld | Navigation 2D | 25 | 4 (↑/↓/←/→) | 1 |
+| TicTacToe | Morpion | 27 | 9 (positions) | 2 |
+| **Quarto** | Jeu de stratégie | 114 | 32 (place + give) | 2 |
 
-## Agents
+## Agents (Rendu 1)
 
-### Agents Simples
-- **Random** : Actions aleatoires
+| Agent | Catégorie | Description |
+|-------|-----------|-------------|
+| RandomAgent | Baseline | Action aléatoire uniforme |
+| HumanAgent | Interactif | Joueur humain (console ou GUI) |
+| TabularQLearning | Tabulaire | Q-Learning avec epsilon-greedy |
 
-### Methodes Tabulaires
-- **TabularQLearning** : Q-Learning classique
+## Documentation
 
-### Value-Based (Deep)
-- **DQN** : Deep Q-Network
-- **DDQN** : Double DQN
-- **DDQN + Experience Replay**
-- **DDQN + Prioritized Experience Replay**
+- **[SPECS.md](SPECS.md)** — Spécification technique : encoding des états/actions, interfaces, architecture
+- **[COMMANDS.md](COMMANDS.md)** — Commandes CLI et raccourcis GUI
 
-### Policy-Based
-- **REINFORCE** : Policy Gradient simple
-- **REINFORCE + Baseline**
-- **Actor-Critic (A2C)**
-- **PPO** : Proximal Policy Optimization
+## Dépendances
 
-### Planning
-- **Random Rollout**
-- **MCTS (UCT)**
-- **Expert Apprentice**
-- **AlphaZero**
-- **MuZero**
+- Python >= 3.9
+- PyTorch >= 2.0
+- NumPy >= 1.24
+- Pygame >= 2.5
+- Matplotlib >= 3.7
+
+## Licence
+
+MIT
 
 ## Metriques
 

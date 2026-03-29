@@ -105,7 +105,7 @@ def make_env(env_name: str):
     elif env_name == "gridworld":
         return GridWorld.create_simple(size=5)
     elif env_name == "tictactoe":
-        return TicTacToeVsRandom(use_onehot=True)
+        return TicTacToeVsRandom()
     elif env_name == "quarto":
         return QuartoVsRandom()
     raise ValueError(f"Environnement inconnu : {env_name}")
@@ -114,7 +114,7 @@ def make_env(env_name: str):
 def make_env_2player(env_name: str):
     """Crée l'env 2 joueurs (self-play AlphaZero, imitation)."""
     if env_name == "tictactoe":
-        return TicTacToe(use_onehot=True)
+        return TicTacToe()
     elif env_name == "quarto":
         return Quarto()
     return make_env(env_name)

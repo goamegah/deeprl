@@ -116,26 +116,20 @@ class Quarto(Environment):
     
     def __init__(
         self,
-        use_compact_state: bool = True,
         seed: Optional[int] = None
     ):
         """
         Crée un environnement Quarto.
         
+        État: représentation compacte (114 dims).
+        Actions: 32 actions (0-15 place, 16-31 give).
+        
         Args:
-            use_compact_state: Utiliser représentation compacte (114 dims)
-                              vs one-hot complète
             seed: Graine aléatoire
         """
         super().__init__(name="Quarto")
         
-        self.use_compact_state = use_compact_state
-        
-        # Calculer dimensions
-        if use_compact_state:
-            self._state_dim = 16 * 5 + 16 + 16 + 2  # 114
-        else:
-            self._state_dim = 16 * 17 + 16 + 16 + 2  # 306
+        self._state_dim = 16 * 5 + 16 + 16 + 2  # 114
         
         self.rng = np.random.default_rng(seed)
         self.reset()
@@ -175,11 +169,8 @@ class Quarto(Environment):
         return self.get_state()
     
     def get_state(self) -> np.ndarray:
-        """Retourne l'état du jeu."""
-        if self.use_compact_state:
-            return self._get_compact_state()
-        else:
-            return self._get_onehot_state()
+        """Retourne l'état du jeu (compact, 114D)."""
+        return self._get_compact_state()
     
     def _get_compact_state(self) -> np.ndarray:
         """
@@ -206,35 +197,6 @@ class Quarto(Environment):
                 state[idx + 3] = float((piece_id >> 2) & 1)  # solid
                 state[idx + 4] = float((piece_id >> 3) & 1)  # square
             idx += 5
-        
-        # Pièce courante (16 dims)
-        if self._current_piece is not None:
-            state[idx + self._current_piece] = 1.0
-        idx += 16
-        
-        # Pièces disponibles (16 dims)
-        for p in self._available_pieces:
-            state[idx + p] = 1.0
-        idx += 16
-        
-        # Joueur courant (2 dims)
-        state[idx + self._current_player] = 1.0
-        
-        return state
-    
-    def _get_onehot_state(self) -> np.ndarray:
-        """État one-hot complet: 306 dimensions."""
-        state = np.zeros(self.state_dim, dtype=np.float32)
-        idx = 0
-        
-        # Plateau (272 dims = 16 × 17)
-        for pos in range(self.N_POSITIONS):
-            piece_id = self._board[pos]
-            if piece_id >= 0:
-                state[idx + piece_id] = 1.0
-            else:
-                state[idx + 16] = 1.0  # Vide
-            idx += 17
         
         # Pièce courante (16 dims)
         if self._current_piece is not None:
@@ -350,7 +312,7 @@ class Quarto(Environment):
     
     def clone(self) -> "Quarto":
         """Clone l'environnement."""
-        env = Quarto(use_compact_state=self.use_compact_state)
+        env = Quarto()
         env._board = self._board.copy()
         env._available_pieces = self._available_pieces.copy()
         env._current_piece = self._current_piece
@@ -452,14 +414,9 @@ class Quarto(Environment):
     ) -> np.ndarray:
         """Applique une permutation de positions au vecteur d'état encodé."""
         new_state = state.copy()
-        if self.use_compact_state:
-            # Compact : 16 blocs de 5 (board) puis le reste inchangé
-            for src, dst in enumerate(perm):
-                new_state[dst * 5 : dst * 5 + 5] = state[src * 5 : src * 5 + 5]
-        else:
-            # One-hot : 16 blocs de 17 (board) puis le reste inchangé
-            for src, dst in enumerate(perm):
-                new_state[dst * 17 : dst * 17 + 17] = state[src * 17 : src * 17 + 17]
+        # Compact : 16 blocs de 5 (board) puis le reste inchangé
+        for src, dst in enumerate(perm):
+            new_state[dst * 5 : dst * 5 + 5] = state[src * 5 : src * 5 + 5]
         return new_state
 
 

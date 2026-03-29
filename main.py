@@ -391,7 +391,7 @@ def demo_tictactoe():
     print("EVALUATION: Random vs RandomBot")
     print("=" * 60)
 
-    env_vs = TicTacToeVsRandom(use_onehot=True)
+    env_vs = TicTacToeVsRandom()
     agent = RandomAgent(state_dim=env_vs.state_dim, n_actions=env_vs.n_actions)
 
     evaluator = Evaluator(env_vs, agent, verbose=True)
@@ -556,6 +556,49 @@ def demo_gui(env_name: str = "tictactoe", agent_name: str = None):
     watch_agent(env, agent, n_episodes=10, fps=fps)
 
 
+def demo_pvp(env_name: str = "tictactoe"):
+    """
+    Mode Humain vs Humain (2 joueurs sur le meme ecran).
+
+    Chaque joueur joue a tour de role avec la souris/clavier.
+    Supporte les jeux 2 joueurs: tictactoe et quarto.
+    """
+    print("=" * 60)
+    print(f"MODE: HUMAIN vs HUMAIN ({env_name})")
+    print("=" * 60)
+
+    try:
+        from deeprl.gui.game_viewer import GameViewer
+    except ImportError:
+        print("\n[WARNING] pygame non installe. Installez-le avec:")
+        print("   pip install pygame")
+        return
+
+    if env_name not in ("tictactoe", "quarto"):
+        print(f"\n[INFO] Le mode PvP n'est disponible que pour les jeux 2 joueurs.")
+        print("   Environnements supportes: tictactoe, quarto")
+        return
+
+    if env_name == "tictactoe":
+        env = TicTacToe()
+    else:
+        env = Quarto()
+
+    print(f"\nEnvironnement: {env.name}")
+    print("Mode: Humain vs Humain (meme ecran)")
+    print("\nControles:")
+    if "quarto" in env_name:
+        print("   Phase DONNER: cliquez sur une piece dans le panel droit")
+        print("   Phase PLACER: cliquez sur une case du plateau")
+    else:
+        print("   Cliquez sur une case ou touches 1-9")
+    print("   [R] Restart  [SPACE] Pause  [ESC] Quitter")
+    print("\nJoueur 0 commence!")
+
+    viewer = GameViewer(env, agent=None, fps=30, title="Humain vs Humain")
+    viewer.run(n_episodes=10)
+
+
 def demo_human_vs_agent(env_name: str = "tictactoe", agent_name: str = None):
     """
     Mode Humain vs Agent.
@@ -702,6 +745,11 @@ def main():
         help="Jouer contre un agent IA (mode humain vs agent)"
     )
     parser.add_argument(
+        "--pvp",
+        action="store_true",
+        help="Mode 2 joueurs humains sur le meme ecran (tictactoe, quarto)"
+    )
+    parser.add_argument(
         "--agent",
         type=str,
         default=None,
@@ -725,6 +773,8 @@ def main():
         demo_gui(args.env, agent_name=args.agent)
     elif args.play:
         demo_human_vs_agent(args.env, agent_name=args.agent)
+    elif args.pvp:
+        demo_pvp(args.env)
     else:
         if args.env == "lineworld":
             demo_lineworld()

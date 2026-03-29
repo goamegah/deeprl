@@ -1,5 +1,6 @@
 include LICENSE
 include README.md
-include AGENTS.md
+include SPECS.md
+include COMMANDS.md
 include requirements.txt
 recursive-include deeprl *.py
