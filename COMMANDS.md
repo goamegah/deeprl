@@ -5,8 +5,8 @@
 ## Démos console
 
 ```bash
-python main.py --env lineworld       # RandomAgent sur LineWorld + parties/sec
-python main.py --env gridworld       # Random vs Q-Learning sur GridWorld + parties/sec
+python main.py --env lineworld       # Random sur LineWorld + parties/sec
+python main.py --env gridworld       # Random sur GridWorld + parties/sec
 python main.py --env tictactoe       # Random vs Random sur TicTacToe + parties/sec
 python main.py --env quarto          # Random vs Random sur Quarto + parties/sec
 ```

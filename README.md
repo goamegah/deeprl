@@ -26,10 +26,11 @@ source .venv/bin/activate
 ## Utilisation rapide
 
 ```bash
-# Démos console (avec mesure parties/seconde)
+# Démos console (simulation random + parties/seconde)
 python main.py --env quarto          # Random vs Random sur Quarto
 python main.py --env tictactoe       # Random vs Random sur TicTacToe
-python main.py --env gridworld       # Random vs Q-Learning sur GridWorld
+python main.py --env gridworld       # Random sur GridWorld
+python main.py --env lineworld       # Random sur LineWorld
 
 # Interface graphique — observer un agent
 python main.py --gui --env quarto
@@ -94,27 +95,6 @@ deeprl/
 ## Licence
 
 MIT
-
-## Metriques
-
-- Score moyen apres N episodes d'entrainement
-- Longueur moyenne des episodes
-- Temps moyen par action
-
-## Benchmarking
-
-```bash
-# Lancer un benchmark complet avec generation de graphiques
-python main.py --benchmark
-
-# Les resultats sont sauvegardes dans le dossier results/
-```
-
-## Interface Graphique
-
-```bash
-python -m deeprl.gui.game_viewer
-```
 
 ## Licence
 

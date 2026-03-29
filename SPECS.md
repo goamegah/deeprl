@@ -54,28 +54,28 @@ Chaque jeu 2 joueurs a une variante **VsRandom** (l'agent affronte un adversaire
 Au lancement de la GUI, un benchmark mesure la **vitesse de simulation** (500 parties random-vs-random) et affiche le résultat `parties/sec` dans le panneau d'informations.
 
 ```bash
-# Démonstration console avec mesure parties/sec
-python main.py --env lineworld       # RandomAgent sur LineWorld
-python main.py --env gridworld       # Random vs Q-Learning sur GridWorld
+# Démonstration console — simulation random + parties/sec
+python main.py --env lineworld       # Random sur LineWorld
+python main.py --env gridworld       # Random sur GridWorld
 python main.py --env tictactoe       # Random vs Random sur TicTacToe
 python main.py --env quarto          # Random vs Random sur Quarto
 ```
 
 ### Méthode de mesure
 
+**Console** : chaque `demo_*()` joue N parties avec des agents random, mesure `n_games / elapsed` et affiche le résultat `parties/sec`.
+
 ```python
-# GameViewer._benchmark_speed(n_games=500)
-agent = RandomAgent(state_dim, n_actions)
 start = time.time()
-for _ in range(500):
+for _ in range(n_games):
     state = env.reset()
     while not env.is_game_over:
         action = agent.act(state, env.get_available_actions())
         state, _, _ = env.step(action)
-gps = 500 / (time.time() - start)
+print(f"Vitesse: {n_games / (time.time() - start):.1f} parties/sec")
 ```
 
-Le résultat est affiché en **parties/seconde** dans le panneau gauche (Quarto) ou le panneau d'info (autres envs).
+**GUI** : un benchmark rapide (500 parties random) est exécuté au lancement et affiché dans le panneau d'informations.
 
 ---
 
