@@ -211,3 +211,7 @@ local/
 # Experiment results and artifacts
 results/
 wandb/
+rendu1_encoding.pptx
+gen_pptx.py
+.~lock.rendu1_encoding.pptx#
+.gitignore
