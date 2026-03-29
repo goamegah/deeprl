@@ -1,12 +1,5 @@
 # DeepRL — Spécification technique (Rendu 1)
 
-> **Branche** : `step1` / `ste1_1`
-> **Version** : 0.2.0
-> **Python** : >= 3.9
-> **Auteur** : Godwin Amegah
-
----
-
 ## Table des matières
 
 1. [Gameplay choisi et environnements](#1-gameplay-choisi-et-environnements)
@@ -366,57 +359,3 @@ Sert à mesurer la performance de base et la vitesse de simulation.
 **Mise à jour (Bellman) :**
 
 $$Q(s, a) \leftarrow Q(s, a) + \alpha \left[ r + \gamma \max_{a'} Q(s', a') - Q(s, a) \right]$$
-
----
-
-## 9. Infrastructure d'entraînement
-
-### Trainer
-
-```python
-Trainer(env, agent, verbose=True, log_interval=100)
-trainer.train(n_episodes=1000, max_steps_per_episode=1000) -> TrainingMetrics
-```
-
-### Evaluator
-
-```python
-Evaluator(env, agent, verbose=True)
-evaluator.evaluate(n_episodes=100) -> EvaluationResults
-# results.get_summary() → mean_score, win_rate, games_per_second, ...
-```
-
-### Benchmark
-
-```python
-Benchmark(env_class, env_kwargs, n_train, n_eval, checkpoints)
-benchmark.add_agent(name, agent_class, agent_kwargs)
-benchmark.run() -> BenchmarkSuite
-```
-
-### `run_experiments.py` — Sortie
-
-```
-results/<timestamp>/
-├── config.json
-├── summary.csv
-└── <env>/
-    ├── metrics.json
-    ├── training_curves.json
-    ├── models/<AgentName>_ckpt<N>.pt
-    └── plots/ (bar_comparison.png, learning_curves.png, ...)
-```
-
----
-
-## 10. Dépendances
-
-```
-torch>=2.0.0
-numpy>=1.24.0
-matplotlib>=3.7.0
-pygame>=2.5.0
-tqdm>=4.65.0
-```
-
-**Python requis :** >= 3.9

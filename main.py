@@ -24,11 +24,11 @@ import os
 import sys
 import numpy as np
 
-from deeprl.envs import LineWorld, GridWorld, TicTacToe, TicTacToeVsRandom, Quarto, QuartoVsRandom
+from deeprl.envs import LineWorld, GridWorld, TicTacToe, Quarto
 from deeprl.agents import (
     RandomAgent, TabularQLearning
 )
-from deeprl.training import Trainer, Evaluator
+from deeprl.training import Trainer
 
 # ============================================================================
 # REGISTRY : pour chaque (env, agent_name), comment recréer l'agent
@@ -67,237 +67,113 @@ DEFAULT_AGENT = {
 
 
 def demo_lineworld():
-    """
-    Démonstration simple sur LineWorld.
-    
-    Montre le cycle complet:
-    1. Créer environnement
-    2. Créer agent
-    3. Entraîner
-    4. Évaluer
-    """
+    """Simulation random sur LineWorld + parties/sec."""
+    import time
+
     print("=" * 60)
-    print("DEMO: LineWorld avec RandomAgent")
+    print("DEMO: LineWorld (Random)")
     print("=" * 60)
-    
-    # 1. Creer l'environnement
-    env = LineWorld(size=5)
+
+    env = LineWorld(size=7)
+    agent = RandomAgent(state_dim=env.state_dim, n_actions=env.n_actions)
+
     print(f"\nEnvironnement: {env}")
-    print(f"   - State shape: {env.state_shape}")
+    print(f"   - State dim: {env.state_dim}")
     print(f"   - Nombre d'actions: {env.n_actions}")
-    
-    # 2. Créer l'agent
-    agent = RandomAgent(
-        state_dim=env.state_dim,
-        n_actions=env.n_actions
-    )
-    print(f"\nAgent: {agent}")
-    
-    # 3. Montrer un episode
-    print("\nExemple d'episode:")
+
+    # 1. Simulation random
+    n_games = 10000
+    total_reward = 0
+
+    start = time.time()
+    for _ in range(n_games):
+        state = env.reset()
+        ep_reward = 0
+        step = 0
+        while not env.is_game_over and step < 200:
+            action = agent.act(state, env.get_available_actions())
+            state, reward, done = env.step(action)
+            ep_reward += reward
+            step += 1
+        total_reward += ep_reward
+    elapsed = time.time() - start
+
+    print(f"\nResultats ({n_games} parties):")
+    print(f"   Recompense moyenne: {total_reward / n_games:.3f}")
+    print(f"   Vitesse: {n_games / elapsed:.1f} parties/sec")
+
+    # 2. Partie de demonstration
+    print("\n" + "=" * 60)
+    print("PARTIE DE DEMONSTRATION")
+    print("=" * 60)
+
     state = env.reset()
     env.render()
-    
     step = 0
-    total_reward = 0
     while not env.is_game_over and step < 20:
         action = agent.act(state, env.get_available_actions())
         state, reward, done = env.step(action)
-        total_reward += reward
         step += 1
-        
         action_name = "←" if action == 0 else "→"
-        print(f"Step {step}: Action={action_name}, Reward={reward:.2f}")
+        print(f"Step {step}: {action_name}, Reward={reward:.2f}")
         env.render()
-    
-    print(f"\n[OK] Episode termine en {step} steps, reward total: {total_reward:.2f}")
-    
-    # 4. Entrainer (meme si RandomAgent n'apprend pas)
-    print("\n" + "=" * 60)
-    print("ENTRAINEMENT (500 episodes)")
-    print("=" * 60)
-    
-    trainer = Trainer(env, agent, verbose=True, log_interval=100)
-    metrics = trainer.train(n_episodes=500)
-    
-    summary = metrics.get_summary()
-    print(f"\nResultats d'entrainement:")
-    print(f"   - Recompense moyenne: {summary['mean_reward']:.3f}")
-    print(f"   - Longueur moyenne: {summary['mean_length']:.1f}")
-    
-    # 5. Evaluer
-    print("\n" + "=" * 60)
-    print("EVALUATION (100 episodes)")
-    print("=" * 60)
-    
-    evaluator = Evaluator(env, agent, verbose=True)
-    results = evaluator.evaluate(n_episodes=100)
-    
-    eval_summary = results.get_summary()
-    print(f"\nResultats d'evaluation:")
-    print(f"   - Score moyen: {eval_summary['mean_score']:.3f} +/- {eval_summary['std_score']:.3f}")
-    print(f"   - Longueur moyenne: {eval_summary['mean_length']:.1f} +/- {eval_summary['std_length']:.1f}")
-    print(f"   - Temps/action: {eval_summary['mean_action_time']*1000:.4f} ms")
-    if 'games_per_second' in eval_summary:
-        print(f"   - Vitesse: {eval_summary['games_per_second']:.1f} parties/sec")
+    print(f"\n[OK] Episode termine en {step} steps")
 
 
 def demo_gridworld():
-    """
-    Démonstration de GridWorld avec Q-Learning.
-    
-    Montre comment un agent APPREND vraiment à résoudre le problème.
-    Compare Random vs Q-Learning.
-    """
+    """Simulation random sur GridWorld + parties/sec."""
+    import time
+
     print("=" * 60)
-    print("DEMO: GridWorld avec TabularQLearning")
+    print("DEMO: GridWorld (Random)")
     print("=" * 60)
-    
-    # 1. Creer l'environnement
+
     env = GridWorld.create_simple(size=5)
+    agent = RandomAgent(state_dim=env.state_dim, n_actions=env.n_actions)
+
     print(f"\nEnvironnement: {env}")
-    print(f"   - State shape: {env.state_shape}")
     print(f"   - State dim: {env.state_dim}")
     print(f"   - Nombre d'actions: {env.n_actions}")
-    print(f"   - Chemin optimal: {env.get_optimal_path_length()} steps")
-    
-    env.reset()
-    print("\nGrille initiale:")
-    env.render()
-    
-    # 2. Comparer Random vs Q-Learning
-    print("\n" + "=" * 60)
-    print("COMPARAISON: Random vs Q-Learning")
-    print("=" * 60)
-    
-    # Agent Random
-    print("\n--- Agent Random ---")
-    random_agent = RandomAgent(state_dim=env.state_dim, n_actions=env.n_actions)
-    
-    trainer_random = Trainer(env, random_agent, verbose=True, log_interval=200)
-    trainer_random.train(n_episodes=1000)
-    
-    evaluator_random = Evaluator(env, random_agent, verbose=False)
-    results_random = evaluator_random.evaluate(n_episodes=100)
-    
-    # Agent Q-Learning
-    print("\n--- Agent Q-Learning ---")
-    q_agent = TabularQLearning(
-        n_states=env.state_dim,  # 25 états pour grille 5x5
-        n_actions=env.n_actions,
-        lr=0.1,
-        gamma=0.99,
-        epsilon_start=1.0,
-        epsilon_end=0.01,
-        epsilon_decay=0.995
-    )
-    
-    trainer_q = Trainer(env, q_agent, verbose=True, log_interval=200)
-    trainer_q.train(n_episodes=1000)
-    
-    evaluator_q = Evaluator(env, q_agent, verbose=False)
-    results_q = evaluator_q.evaluate(n_episodes=100)
-    
-    # 3. Afficher les resultats comparatifs
-    print("\n" + "=" * 60)
-    print("RESULTATS COMPARATIFS")
-    print("=" * 60)
-    
-    summary_random = results_random.get_summary()
-    summary_q = results_q.get_summary()
-    optimal_length = env.get_optimal_path_length()
-    
-    print(f"\n{'Métrique':<25} {'Random':<20} {'Q-Learning':<20} {'Optimal':<10}")
-    print("-" * 75)
-    
-    print(f"{'Score moyen':<25} {summary_random['mean_score']:.3f} ± {summary_random['std_score']:.3f}      {summary_q['mean_score']:.3f} ± {summary_q['std_score']:.3f}      -")
-    print(f"{'Longueur moyenne':<25} {summary_random['mean_length']:.1f} ± {summary_random['std_length']:.1f}        {summary_q['mean_length']:.1f} ± {summary_q['std_length']:.1f}         {optimal_length}")
-    print(f"{'Temps/action (ms)':<25} {summary_random['mean_action_time']*1000:.4f}              {summary_q['mean_action_time']*1000:.4f}             -")
-    if 'games_per_second' in summary_random:
-        print(f"{'Parties/sec':<25} {summary_random['games_per_second']:.1f}                  {summary_q['games_per_second']:.1f}")
-    
-    # 4. Visualiser la politique apprise
-    print("\n" + "=" * 60)
-    print("POLITIQUE APPRISE (Q-Learning)")
-    print("=" * 60)
-    
-    visualize_policy(env, q_agent)
-    
-    # 5. Montrer un episode avec la politique apprise
-    print("\n" + "=" * 60)
-    print("EPISODE AVEC POLITIQUE APPRISE")
-    print("=" * 60)
-    
-    q_agent.set_training_mode(False)  # Mode exploitation
-    state = env.reset()
-    env.render()
-    
+
+    # 1. Simulation random
+    n_games = 10000
     total_reward = 0
+
+    start = time.time()
+    for _ in range(n_games):
+        state = env.reset()
+        ep_reward = 0
+        step = 0
+        while not env.is_game_over and step < 200:
+            action = agent.act(state, env.get_available_actions())
+            state, reward, done = env.step(action)
+            ep_reward += reward
+            step += 1
+        total_reward += ep_reward
+    elapsed = time.time() - start
+
+    print(f"\nResultats ({n_games} parties):")
+    print(f"   Recompense moyenne: {total_reward / n_games:.3f}")
+    print(f"   Vitesse: {n_games / elapsed:.1f} parties/sec")
+
+    # 2. Partie de demonstration
+    print("\n" + "=" * 60)
+    print("PARTIE DE DEMONSTRATION")
+    print("=" * 60)
+
+    state = env.reset()
+    print("Grille:")
+    env.render()
+
     step = 0
     while not env.is_game_over and step < 50:
-        action = q_agent.act(state, env.get_available_actions(), training=False)
+        action = agent.act(state, env.get_available_actions())
         state, reward, done = env.step(action)
-        total_reward += reward
         step += 1
-        
         print(f"Step {step}: {GridWorld.ACTION_NAMES[action]}, Reward={reward:.2f}")
         env.render()
-    
-    print(f"\n[OK] Episode termine en {step} steps (optimal: {optimal_length})")
-    print(f"   Recompense totale: {total_reward:.2f}")
 
-
-def visualize_policy(env: GridWorld, agent: TabularQLearning):
-    """
-    Affiche la politique apprise sous forme de flèches.
-    """
-    arrows = {0: "↑", 1: "↓", 2: "←", 3: "→"}
-    
-    policy = agent.get_policy()
-    
-    print("\nPolitique (meilleure action par état):")
-    print("+" + "---+" * env.width)
-    
-    for row in range(env.height):
-        line = "|"
-        for col in range(env.width):
-            pos = (row, col)
-            state_idx = env.pos_to_index(pos)
-            
-            if pos == env.goal_pos:
-                cell = " G "
-            elif pos in env.walls:
-                cell = " # "
-            else:
-                best_action = policy[state_idx]
-                cell = f" {arrows[best_action]} "
-            
-            line += cell + "|"
-        print(line)
-        print("+" + "---+" * env.width)
-    
-    # Afficher aussi les valeurs V(s)
-    print("\nValeurs V(s) (max Q pour chaque état):")
-    values = agent.get_value_function()
-    
-    print("+" + "------+" * env.width)
-    for row in range(env.height):
-        line = "|"
-        for col in range(env.width):
-            pos = (row, col)
-            state_idx = env.pos_to_index(pos)
-            
-            if pos == env.goal_pos:
-                cell = "  G   "
-            elif pos in env.walls:
-                cell = "  #   "
-            else:
-                v = values[state_idx]
-                cell = f"{v:+.2f} "
-            
-            line += cell + "|"
-        print(line)
-        print("+" + "------+" * env.width)
+    print(f"\n[OK] Episode termine en {step} steps")
 
 
 def demo_tictactoe():
@@ -326,7 +202,7 @@ def demo_tictactoe():
     print(f"Joueur O: {agent_o.name}")
 
     # 3. Jouer des parties
-    n_games = 1000
+    n_games = 10000
     wins_x, wins_o, draws = 0, 0, 0
 
     start = time.time()
@@ -386,22 +262,6 @@ def demo_tictactoe():
     else:
         print("\nMatch nul!")
 
-    # 5. Evaluation avec TicTacToeVsRandom
-    print("\n" + "=" * 60)
-    print("EVALUATION: Random vs RandomBot")
-    print("=" * 60)
-
-    env_vs = TicTacToeVsRandom()
-    agent = RandomAgent(state_dim=env_vs.state_dim, n_actions=env_vs.n_actions)
-
-    evaluator = Evaluator(env_vs, agent, verbose=True)
-    results = evaluator.evaluate(n_episodes=200)
-    summary = results.get_summary()
-
-    print(f"\nScore moyen: {summary['mean_score']:.3f} +/- {summary['std_score']:.3f}")
-    if 'win_rate' in summary:
-        print(f"Win: {summary['win_rate']:.1%}, Loss: {summary['loss_rate']:.1%}, Draw: {summary['draw_rate']:.1%}")
-
 
 def demo_quarto():
     """
@@ -442,7 +302,7 @@ def demo_quarto():
     print("TOURNOI: Random vs Random")
     print("=" * 60)
 
-    n_games = 100
+    n_games = 10000
     wins = {"J0": 0, "J1": 0, "Nul": 0}
 
     start = time.time()
@@ -472,25 +332,7 @@ def demo_quarto():
     print(f"   Nuls: {wins['Nul']} ({wins['Nul']/n_games*100:.0f}%)")
     print(f"   Vitesse: {n_games/elapsed:.1f} parties/sec")
 
-    # 5. Evaluation avec QuartoVsRandom
-    print("\n" + "=" * 60)
-    print("EVALUATION: Random vs RandomBot")
-    print("=" * 60)
-
-    env_vs = QuartoVsRandom()
-    agent = RandomAgent(state_dim=env_vs.state_dim, n_actions=env_vs.n_actions)
-
-    evaluator = Evaluator(env_vs, agent, verbose=True)
-    results = evaluator.evaluate(n_episodes=200)
-    summary = results.get_summary()
-
-    print(f"\nScore moyen: {summary['mean_score']:.3f} +/- {summary['std_score']:.3f}")
-    if 'win_rate' in summary:
-        print(f"Win: {summary['win_rate']:.1%}, Loss: {summary['loss_rate']:.1%}, Draw: {summary['draw_rate']:.1%}")
-    if 'games_per_second' in summary:
-        print(f"Vitesse: {summary['games_per_second']:.1f} parties/sec")
-
-    # 6. Partie de demonstration
+    # 5. Partie de demonstration
     print("\n" + "=" * 60)
     print("PARTIE DE DEMONSTRATION")
     print("=" * 60)

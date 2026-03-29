@@ -238,5 +238,5 @@ if __name__ == "__main__":
         print(f"Action: {env.ACTION_NAMES[action]}, Reward: {reward:+.1f}")
         if done:
             env.render()
-            print("✓ Épisode terminé!")
+            print("OK Épisode terminé!")
             break
