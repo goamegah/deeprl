@@ -22,7 +22,6 @@ Usage:
 import argparse
 import os
 import sys
-import numpy as np
 
 from deeprl.envs import LineWorld, GridWorld, TicTacToe, Quarto
 from deeprl.agents import (
@@ -59,8 +58,8 @@ NEEDS_ENV_AGENTS = set()
 
 # Agent par défaut pour chaque env (utilisé si --agent non spécifié)
 DEFAULT_AGENT = {
-    "lineworld": "TabularQLearning",
-    "gridworld": "TabularQLearning",
+    "lineworld": "Random",
+    "gridworld": "Random",
     "tictactoe": "Random",
     "quarto": "Random",
 }
@@ -355,11 +354,11 @@ def demo_quarto():
         state, reward, done = env.step(action)
         step += 1
 
-        if env._phase == "place":
-            print(f"\n{player} donne la piece {action}")
-        else:
+        if action < 16:
             row, col = action // 4, action % 4
             print(f"\n{player} place en ({row}, {col})")
+        else:
+            print(f"\n{player} donne la piece {action - 16}")
         env.render()
 
     if env._winner == 0:
