@@ -82,9 +82,14 @@ class Quarto(Environment):
     - Phase "place": 0-15 (position sur le plateau)
     - Phase "give": 0-15 (pièce à donner à l'adversaire)
     
-    The same 16 action indices are reused for both phases.
-    The state encodes which phase is active (via current_piece presence),
-    so the network can learn phase-dependent semantics.
+    Espace d'actions unifié de 32 actions :
+    - Actions 0-15  : placer la pièce sur une position du plateau (phase "place")
+    - Actions 16-31 : donner une pièce à l'adversaire (phase "give"),
+                      action 16 = pièce 0, ..., action 31 = pièce 15
+    
+    Pendant la phase "place", les actions 16-31 sont masquées.
+    Pendant la phase "give", les actions 0-15 sont masquées.
+    Chaque sortie d'un réseau a toujours la même sémantique.
     
     Représentation de l'état (pour réseau de neurones):
     - Board: 16 positions × 17 valeurs (16 pièces + vide) = 272 dims
@@ -142,8 +147,8 @@ class Quarto(Environment):
     
     @property
     def n_actions(self) -> int:
-        """16 actions: 0-15 (positions in 'place' phase, piece IDs in 'give' phase)."""
-        return 16
+        """32 actions: 0-15 = positions (place), 16-31 = pièces (give)."""
+        return 32
     
     def reset(self) -> np.ndarray:
         """Réinitialise le jeu."""
@@ -251,7 +256,7 @@ class Quarto(Environment):
         Effectue une action.
         
         Args:
-            action: 0-15 (position in 'place' phase, piece ID in 'give' phase)
+            action: 0-15 = position (phase place), 16-31 = pièce (phase give)
         
         Returns:
             (state, reward, done)
@@ -260,10 +265,10 @@ class Quarto(Environment):
             return self.get_state(), 0.0, True
         
         if self._phase == "place":
-            # Placer la pièce courante
+            # Action 0-15 : placer la pièce courante
             pos = action
-            if self._board[pos] >= 0:
-                # Position occupée
+            if pos < 0 or pos >= self.N_POSITIONS or self._board[pos] >= 0:
+                # Action invalide
                 return self.get_state(), -1.0, False
             
             # Placer la pièce
@@ -289,11 +294,11 @@ class Quarto(Environment):
             return self.get_state(), 0.0, False
         
         else:  # Phase "give"
-            # Choisir une pièce pour l'adversaire
-            piece = action
+            # Action 16-31 : choisir une pièce pour l'adversaire
+            piece = action - self.N_POSITIONS  # 16->0, 17->1, ..., 31->15
             
-            if piece not in self._available_pieces:
-                # Pièce non disponible
+            if piece < 0 or piece >= self.N_PIECES or piece not in self._available_pieces:
+                # Action invalide
                 return self.get_state(), -1.0, False
             
             # Donner la pièce
@@ -324,16 +329,16 @@ class Quarto(Environment):
         return False
     
     def get_available_actions(self) -> List[int]:
-        """Retourne les actions valides."""
+        """Retourne les actions valides (0-15 place, 16-31 give)."""
         if self._done:
             return []
         
         if self._phase == "place":
-            # Positions vides
+            # Actions 0-15 : positions vides
             return [i for i in range(self.N_POSITIONS) if self._board[i] < 0]
         else:
-            # Pièces disponibles
-            return list(self._available_pieces)
+            # Actions 16-31 : pièces disponibles (décalées de +16)
+            return [p + self.N_POSITIONS for p in self._available_pieces]
     
     @property
     def is_game_over(self) -> bool:
@@ -429,16 +434,14 @@ class Quarto(Environment):
                         perm[_idx(r, c)] = _idx(rr, cc)
                 transforms.append(perm)
 
-        is_place = self._phase == "place"
-
         for perm in transforms:
             new_state = self._permute_board_in_state(state, perm)
-            if is_place:
-                new_policy = np.zeros_like(policy)
-                for src, dst in enumerate(perm):
-                    new_policy[dst] = policy[src]
-            else:
-                new_policy = policy.copy()
+            new_policy = np.zeros_like(policy)
+            # Permuter la partie "place" (indices 0-15)
+            for src, dst in enumerate(perm):
+                new_policy[dst] = policy[src]
+            # La partie "give" (indices 16-31) n'est pas permutée
+            new_policy[self.N_POSITIONS:] = policy[self.N_POSITIONS:]
             symmetries.append((new_state, new_policy))
 
         return symmetries
@@ -507,20 +510,20 @@ if __name__ == "__main__":
     # Jouer quelques coups
     print("\n--- Partie de test ---")
     
-    # J1 donne pièce 0
-    state, reward, done = env.step(0)
+    # J1 donne pièce 0 (action 16 = pièce 0)
+    state, reward, done = env.step(16)
     print("J1 donne pièce 0")
     
-    # J2 place en position 0
+    # J2 place en position 0 (action 0)
     state, reward, done = env.step(0)
     print("J2 place en position 0")
     env.render()
     
-    # J2 donne pièce 1
-    state, reward, done = env.step(1)
+    # J2 donne pièce 1 (action 17 = pièce 1)
+    state, reward, done = env.step(17)
     print("J2 donne pièce 1")
     
-    # J1 place en position 5
+    # J1 place en position 5 (action 5)
     state, reward, done = env.step(5)
     print("J1 place en position 5")
     env.render()

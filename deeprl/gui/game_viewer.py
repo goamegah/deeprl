@@ -42,14 +42,19 @@ class GameViewer:
     
     # Couleurs
     WHITE = (255, 255, 255)
-    BLACK = (0, 0, 0)
+    BLACK = (30, 30, 30)
     GRAY = (128, 128, 128)
-    LIGHT_GRAY = (200, 200, 200)
+    LIGHT_GRAY = (210, 215, 220)
+    DARK_GRAY = (80, 80, 80)
     RED = (220, 60, 60)
+    SOFT_RED = (240, 130, 130)
     GREEN = (60, 180, 60)
-    BLUE = (60, 60, 220)
+    SOFT_GREEN = (200, 235, 200)
+    BLUE = (55, 90, 220)
+    SOFT_BLUE = (190, 210, 245)
     YELLOW = (220, 220, 60)
     ORANGE = (255, 165, 0)
+    BG_COLOR = (240, 242, 245)
     
     def __init__(
         self,
@@ -95,6 +100,9 @@ class GameViewer:
         self._quarto_piece_rects = {}
         self._quarto_panel_height = 0
         
+        # Benchmark vitesse (random vs random)
+        self.games_per_second = self._benchmark_speed()
+        
         # Calculer la taille de la fenêtre
         self._calculate_window_size()
         
@@ -120,6 +128,7 @@ class GameViewer:
             # TicTacToe: 3x3
             self.grid_width = 3
             self.grid_height = 3
+            self.cell_size = max(self.cell_size, 130)  # min 130px pour lisibilité
         elif "quarto" in env_name:
             # Quarto: 4x4 board + pieces panel
             self.grid_width = 4
@@ -143,7 +152,22 @@ class GameViewer:
         self.info_width = 280 if "quarto" in self.env.name.lower() else 250
         
         self.window_width = self.game_width + self.info_width
-        self.window_height = max(self.game_height, 400)
+        self.window_height = max(self.game_height, 520)
+    
+    def _benchmark_speed(self, n_games: int = 500) -> float:
+        """Mesure la vitesse de simulation (parties/sec) avec un joueur random."""
+        from deeprl.agents.random_agent import RandomAgent
+        env = self.env.clone()
+        rng_agent = RandomAgent(state_dim=env.state_dim, n_actions=env.n_actions)
+        start = time.time()
+        for _ in range(n_games):
+            state = env.reset()
+            while not env.is_game_over:
+                available = env.get_available_actions()
+                action = rng_agent.act(state, available)
+                state, _, _ = env.step(action)
+        elapsed = time.time() - start
+        return n_games / elapsed if elapsed > 0 else 0.0
     
     def init_pygame(self):
         """Initialise Pygame."""
@@ -310,7 +334,12 @@ class GameViewer:
                 pygame.K_d: 13, pygame.K_e: 14, pygame.K_f: 15,
             }
             if key in key_map:
-                action = key_map[key]
+                raw = key_map[key]
+                # Phase give : décaler de +16 pour obtenir l'action 16-31
+                if self.env._phase == "give":
+                    action = raw + 16
+                else:
+                    action = raw
                 if action in self.env.get_available_actions():
                     return action
         
@@ -348,14 +377,15 @@ class GameViewer:
                 # Phase give : clic sur une pièce dans le panel
                 for piece_id, rect in self._quarto_piece_rects.items():
                     if rect.collidepoint(x, y):
-                        if piece_id in self.env.get_available_actions():
-                            return piece_id
+                        action = piece_id + 16  # actions give = 16-31
+                        if action in self.env.get_available_actions():
+                            return action
         
         return None
     
     def _render(self):
         """Affiche l'état actuel."""
-        self.screen.fill(self.WHITE)
+        self.screen.fill(self.BG_COLOR)
         
         # Dessiner le jeu
         self._draw_game()
@@ -380,93 +410,154 @@ class GameViewer:
     
     def _draw_lineworld(self):
         """Dessine LineWorld."""
-        y = self.window_height // 2 - self.cell_size // 2
+        cs = self.cell_size
+        y = self.window_height // 2 - cs // 2
         
         for i in range(self.env.size):
-            x = i * self.cell_size
-            rect = pygame.Rect(x, y, self.cell_size, self.cell_size)
+            x = i * cs
+            rect = pygame.Rect(x, y, cs, cs)
+            
+            is_agent = (i == self.env._position)
+            is_goal = (i == self.env.size - 1)
+            is_fail = (i == 0)
             
             # Couleur de fond
-            if i == self.env._position:
-                color = self.BLUE
-            elif i == self.env.size - 1:
-                color = self.GREEN
+            if is_agent:
+                color = self.SOFT_BLUE
+            elif is_goal:
+                color = self.SOFT_GREEN
+            elif is_fail:
+                color = self.SOFT_RED
             else:
-                color = self.LIGHT_GRAY
+                color = self.WHITE
             
             pygame.draw.rect(self.screen, color, rect)
-            pygame.draw.rect(self.screen, self.BLACK, rect, 2)
+            pygame.draw.rect(self.screen, self.DARK_GRAY, rect, 2)
             
-            # Label
-            text = self.font_small.render(str(i), True, self.BLACK)
-            text_rect = text.get_rect(center=(x + self.cell_size//2, y + self.cell_size + 20))
-            self.screen.blit(text, text_rect)
+            # Symbole central
+            cx, cy = x + cs // 2, y + cs // 2
+            if is_agent:
+                pygame.draw.circle(self.screen, self.BLUE, (cx, cy), cs // 3)
+                txt = self.font.render("A", True, self.WHITE)
+                self.screen.blit(txt, txt.get_rect(center=(cx, cy)))
+            elif is_goal:
+                txt = self.font.render("G", True, self.GREEN)
+                self.screen.blit(txt, txt.get_rect(center=(cx, cy)))
+            elif is_fail:
+                txt = self.font.render("F", True, self.RED)
+                self.screen.blit(txt, txt.get_rect(center=(cx, cy)))
+            
+            # Numéro de position
+            num = self.font_small.render(str(i), True, self.GRAY)
+            self.screen.blit(num, num.get_rect(center=(cx, y + cs + 18)))
     
     def _draw_gridworld(self):
         """Dessine GridWorld."""
+        cs = self.cell_size
+        # Déterminer la position fail (coin supérieur droit)
+        fail_pos = (0, self.env.width - 1) if hasattr(self.env, 'width') else None
+        
         for row in range(self.env.height):
             for col in range(self.env.width):
-                x = col * self.cell_size
-                y = row * self.cell_size
-                rect = pygame.Rect(x, y, self.cell_size, self.cell_size)
+                x = col * cs
+                y = row * cs
+                rect = pygame.Rect(x, y, cs, cs)
                 
                 pos = (row, col)
+                is_agent = (pos == self.env._agent_pos)
+                is_goal = (pos == self.env.goal_pos)
+                is_wall = (pos in self.env.walls)
+                is_fail = (fail_pos is not None and pos == fail_pos)
+                is_trap = hasattr(self.env, 'traps') and pos in self.env.traps
                 
                 # Couleur selon le type de case
-                if pos == self.env._agent_pos:
-                    color = self.BLUE
-                elif pos == self.env.goal_pos:
-                    color = self.GREEN
-                elif pos in self.env.walls:
+                if is_agent:
+                    color = self.SOFT_BLUE
+                elif is_goal:
+                    color = self.SOFT_GREEN
+                elif is_fail or is_trap:
+                    color = self.SOFT_RED
+                elif is_wall:
                     color = self.GRAY
-                elif hasattr(self.env, 'traps') and pos in self.env.traps:
-                    color = self.RED
                 else:
-                    color = self.LIGHT_GRAY
+                    color = self.WHITE
                 
                 pygame.draw.rect(self.screen, color, rect)
-                pygame.draw.rect(self.screen, self.BLACK, rect, 2)
+                pygame.draw.rect(self.screen, self.DARK_GRAY, rect, 2)
                 
                 # Symboles
-                center = (x + self.cell_size//2, y + self.cell_size//2)
-                if pos == self.env._agent_pos:
+                cx, cy = x + cs // 2, y + cs // 2
+                if is_agent:
+                    pygame.draw.circle(self.screen, self.BLUE, (cx, cy), cs // 3)
                     text = self.font.render("A", True, self.WHITE)
-                    text_rect = text.get_rect(center=center)
-                    self.screen.blit(text, text_rect)
-                elif pos == self.env.goal_pos:
-                    text = self.font.render("G", True, self.WHITE)
-                    text_rect = text.get_rect(center=center)
-                    self.screen.blit(text, text_rect)
+                    self.screen.blit(text, text.get_rect(center=(cx, cy)))
+                elif is_goal:
+                    text = self.font.render("G", True, self.GREEN)
+                    self.screen.blit(text, text.get_rect(center=(cx, cy)))
+                elif is_fail or is_trap:
+                    text = self.font.render("F", True, self.RED)
+                    self.screen.blit(text, text.get_rect(center=(cx, cy)))
+                elif is_wall:
+                    text = self.font.render("#", True, self.WHITE)
+                    self.screen.blit(text, text.get_rect(center=(cx, cy)))
     
     def _draw_tictactoe(self):
         """Dessine TicTacToe."""
+        cs = self.cell_size
         board = self.env._board.reshape(3, 3)
+        available = self.env.get_available_actions() if not self.env.is_game_over else []
+        
+        # Détecter la ligne gagnante
+        winning_cells = self._get_tictactoe_winning_cells(board)
         
         for row in range(3):
             for col in range(3):
-                x = col * self.cell_size
-                y = row * self.cell_size
-                rect = pygame.Rect(x, y, self.cell_size, self.cell_size)
+                x = col * cs
+                y = row * cs
+                rect = pygame.Rect(x + 2, y + 2, cs - 4, cs - 4)
+                idx = row * 3 + col
                 
-                # Fond
-                pygame.draw.rect(self.screen, self.LIGHT_GRAY, rect)
-                pygame.draw.rect(self.screen, self.BLACK, rect, 3)
+                # Couleur de fond
+                if (row, col) in winning_cells:
+                    bg = (255, 245, 180)  # jaune clair pour la ligne gagnante
+                elif idx in available and self.agent is None:
+                    bg = self.SOFT_GREEN  # surbrillance cases jouables (mode humain)
+                else:
+                    bg = self.WHITE
                 
-                # Symbole
+                pygame.draw.rect(self.screen, bg, rect, border_radius=6)
+                pygame.draw.rect(self.screen, self.DARK_GRAY, rect, 2, border_radius=6)
+                
+                # Symbole X / O
                 val = board[row, col]
-                center = (x + self.cell_size//2, y + self.cell_size//2)
-                radius = self.cell_size // 3
+                cx, cy = x + cs // 2, y + cs // 2
+                r = int(cs * 0.30)
+                lw = max(5, cs // 18)  # épaisseur proportionnelle
                 
                 if val == 1:  # X
-                    offset = radius - 5
-                    pygame.draw.line(self.screen, self.BLUE, 
-                                   (center[0]-offset, center[1]-offset),
-                                   (center[0]+offset, center[1]+offset), 4)
+                    offset = r
                     pygame.draw.line(self.screen, self.BLUE,
-                                   (center[0]+offset, center[1]-offset),
-                                   (center[0]-offset, center[1]+offset), 4)
+                                     (cx - offset, cy - offset),
+                                     (cx + offset, cy + offset), lw)
+                    pygame.draw.line(self.screen, self.BLUE,
+                                     (cx + offset, cy - offset),
+                                     (cx - offset, cy + offset), lw)
                 elif val == -1:  # O
-                    pygame.draw.circle(self.screen, self.RED, center, radius, 4)
+                    pygame.draw.circle(self.screen, self.RED, (cx, cy), r, lw)
+    
+    @staticmethod
+    def _get_tictactoe_winning_cells(board):
+        """Retourne les positions de la ligne gagnante, ou un set vide."""
+        lines = [
+            [(0,0),(0,1),(0,2)], [(1,0),(1,1),(1,2)], [(2,0),(2,1),(2,2)],
+            [(0,0),(1,0),(2,0)], [(0,1),(1,1),(2,1)], [(0,2),(1,2),(2,2)],
+            [(0,0),(1,1),(2,2)], [(0,2),(1,1),(2,0)],
+        ]
+        for line in lines:
+            vals = [board[r][c] for r, c in line]
+            if vals[0] != 0 and vals[0] == vals[1] == vals[2]:
+                return set(line)
+        return set()
     
     def _draw_quarto_piece(self, cx, cy, piece_id, size):
         """
@@ -637,54 +728,75 @@ class GameViewer:
     
     def _draw_info_panel(self):
         """Dessine le panel d'informations."""
-        x = self.game_width + 10
-        y = 10
+        px = self.game_width
+        # Fond du panel
+        panel_rect = pygame.Rect(px, 0, self.info_width, self.window_height)
+        pygame.draw.rect(self.screen, self.WHITE, panel_rect)
+        pygame.draw.line(self.screen, self.LIGHT_GRAY, (px, 0), (px, self.window_height), 2)
+        
+        x = px + 15
+        y = 15
         
         # Titre
-        title = self.font.render("DeepRL", True, self.BLACK)
+        title = self.font.render("DeepRL", True, self.BLUE)
         self.screen.blit(title, (x, y))
-        y += 40
+        y += 45
         
         # Environnement
         env_text = self.font_small.render(f"Env: {self.env.name}", True, self.BLACK)
         self.screen.blit(env_text, (x, y))
-        y += 25
+        y += 28
         
         # Agent
         if self.agent:
             agent_text = self.font_small.render(f"Agent: {self.agent.name}", True, self.BLACK)
         else:
-            agent_text = self.font_small.render("Mode: Humain", True, self.BLUE)
+            agent_text = self.font_small.render("Mode: Humain", True, self.GREEN)
         self.screen.blit(agent_text, (x, y))
+        y += 28
+        
+        # Vitesse de simulation
+        speed_text = self.font_small.render(
+            f"Vitesse: {self.games_per_second:,.0f} parties/s", True, self.BLUE
+        )
+        self.screen.blit(speed_text, (x, y))
         y += 35
         
-        # Statistiques
-        pygame.draw.line(self.screen, self.GRAY, (x, y), (x + self.info_width - 20, y))
-        y += 15
+        # Séparateur
+        pygame.draw.line(self.screen, self.LIGHT_GRAY, (x, y), (x + self.info_width - 30, y), 2)
+        y += 18
         
         stats = [
-            f"Épisode: {self.episode_count + 1}",
-            f"Step: {self.step_count}",
-            f"Reward: {self.total_reward:.2f}",
-            f"",
-            f"Victoires: {self.wins}",
-            f"Défaites: {self.losses}",
-            f"Nuls: {self.draws}",
+            ("Épisode:", str(self.episode_count + 1)),
+            ("Step:", str(self.step_count)),
+            ("Reward:", f"{self.total_reward:.2f}"),
         ]
+        for label, val in stats:
+            lbl = self.font_small.render(label, True, self.GRAY)
+            v = self.font_small.render(val, True, self.BLACK)
+            self.screen.blit(lbl, (x, y))
+            self.screen.blit(v, (x + 80, y))
+            y += 24
         
-        for stat in stats:
-            if stat:
-                stat_text = self.font_small.render(stat, True, self.BLACK)
-                self.screen.blit(stat_text, (x, y))
-            y += 22
+        y += 10
+        score_stats = [
+            ("Victoires:", str(self.wins), self.GREEN),
+            ("Défaites:", str(self.losses), self.RED),
+            ("Nuls:", str(self.draws), self.GRAY),
+        ]
+        for label, val, color in score_stats:
+            lbl = self.font_small.render(label, True, self.DARK_GRAY)
+            v = self.font_small.render(val, True, color)
+            self.screen.blit(lbl, (x, y))
+            self.screen.blit(v, (x + 90, y))
+            y += 24
         
-        # Contrôles
-        y += 20
-        pygame.draw.line(self.screen, self.GRAY, (x, y), (x + self.info_width - 20, y))
+        # Séparateur
+        y += 10
+        pygame.draw.line(self.screen, self.LIGHT_GRAY, (x, y), (x + self.info_width - 30, y), 2)
         y += 15
         
         controls = [
-            "Contrôles:",
             "SPACE: Pause",
             "N: Step-by-step",
             "↑/↓: Vitesse",
@@ -692,39 +804,49 @@ class GameViewer:
             f"FPS: {self.fps}",
         ]
         
+        header = self.font_small.render("Contrôles", True, self.DARK_GRAY)
+        self.screen.blit(header, (x, y))
+        y += 22
         for ctrl in controls:
             ctrl_text = self.font_small.render(ctrl, True, self.GRAY)
-            self.screen.blit(ctrl_text, (x, y))
-            y += 22
+            self.screen.blit(ctrl_text, (x + 8, y))
+            y += 20
         
         # Contrôles spécifiques Quarto
         if "quarto" in self.env.name.lower():
-            y += 5
+            y += 8
             quarto_ctrls = [
                 "Quarto:",
                 "Clic: placer/donner",
                 "0-9, A-F: selection",
             ]
             for qc in quarto_ctrls:
-                self.screen.blit(self.font_small.render(qc, True, self.GRAY), (x, y))
-                y += 22
+                self.screen.blit(self.font_small.render(qc, True, self.GRAY), (x + 8, y))
+                y += 20
         
-        # État
-        y += 20
+        # État du jeu (en bas du panel avec fond coloré)
+        state_y = self.window_height - 50
+        state_rect = pygame.Rect(px + 1, state_y - 5, self.info_width - 2, 45)
+
         if self.paused:
+            pygame.draw.rect(self.screen, (255, 240, 200), state_rect)
             pause_text = self.font.render("PAUSE", True, self.ORANGE)
-            self.screen.blit(pause_text, (x, y))
+            self.screen.blit(pause_text, (x, state_y))
         elif self.env.is_game_over:
             if hasattr(self.env, '_winner'):
                 if self.env._winner == 0:
+                    pygame.draw.rect(self.screen, (200, 240, 200), state_rect)
                     end_text = self.font.render("VICTOIRE!", True, self.GREEN)
                 elif self.env._winner == 1:
+                    pygame.draw.rect(self.screen, (245, 210, 210), state_rect)
                     end_text = self.font.render("DÉFAITE", True, self.RED)
                 else:
+                    pygame.draw.rect(self.screen, self.LIGHT_GRAY, state_rect)
                     end_text = self.font.render("NUL", True, self.GRAY)
             else:
+                pygame.draw.rect(self.screen, self.LIGHT_GRAY, state_rect)
                 end_text = self.font.render("FIN", True, self.GRAY)
-            self.screen.blit(end_text, (x, y))
+            self.screen.blit(end_text, (x, state_y))
     
     def _update_stats(self):
         """Met à jour les statistiques en fin d'épisode."""
@@ -871,11 +993,10 @@ class HumanVsAgentViewer(GameViewer):
     
     def _draw_info_panel(self):
         """Dessine le panel d'info avec indication du tour."""
-        # Appeler le parent d'abord
         super()._draw_info_panel()
         
-        x = self.game_width + 10
-        y = self.window_height - 100
+        x = self.game_width + 15
+        y = self.window_height - 95
         
         # Afficher qui joue
         if not self.env.is_game_over:

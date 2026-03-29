@@ -3,13 +3,14 @@ DeepRL - Point d'entree principal
 
 Ce fichier permet de:
 1. Tester rapidement les environnements et agents
-2. Lancer des benchmarks complets avec graphiques
-3. Jouer contre un agent IA
+2. Jouer contre un agent IA (interface graphique)
+3. Observer un agent jouer (interface graphique)
 4. Demontrer l'utilisation de la bibliotheque
+
+Pour l'entrainement et les benchmarks, utiliser: python run_experiments.py
 
 Usage:
     python main.py                    # Test rapide (GridWorld + Q-Learning)
-    python main.py --benchmark        # Benchmark complet avec graphiques
     python main.py --gui              # Observer un agent jouer
     python main.py --play             # Jouer contre un agent IA
     python main.py --env lineworld    # Environnement specifique
@@ -46,7 +47,7 @@ AGENT_REGISTRY = {
         "Random":                   lambda: RandomAgent(state_dim=27, n_actions=9)
     },
     "quarto": {
-        "Random":                   lambda: RandomAgent(state_dim=114, n_actions=16)
+        "Random":                   lambda: RandomAgent(state_dim=114, n_actions=32)
     },
 }
 
@@ -137,6 +138,8 @@ def demo_lineworld():
     print(f"   - Score moyen: {eval_summary['mean_score']:.3f} +/- {eval_summary['std_score']:.3f}")
     print(f"   - Longueur moyenne: {eval_summary['mean_length']:.1f} +/- {eval_summary['std_length']:.1f}")
     print(f"   - Temps/action: {eval_summary['mean_action_time']*1000:.4f} ms")
+    if 'games_per_second' in eval_summary:
+        print(f"   - Vitesse: {eval_summary['games_per_second']:.1f} parties/sec")
 
 
 def demo_gridworld():
@@ -210,6 +213,8 @@ def demo_gridworld():
     print(f"{'Score moyen':<25} {summary_random['mean_score']:.3f} ± {summary_random['std_score']:.3f}      {summary_q['mean_score']:.3f} ± {summary_q['std_score']:.3f}      -")
     print(f"{'Longueur moyenne':<25} {summary_random['mean_length']:.1f} ± {summary_random['std_length']:.1f}        {summary_q['mean_length']:.1f} ± {summary_q['std_length']:.1f}         {optimal_length}")
     print(f"{'Temps/action (ms)':<25} {summary_random['mean_action_time']*1000:.4f}              {summary_q['mean_action_time']*1000:.4f}             -")
+    if 'games_per_second' in summary_random:
+        print(f"{'Parties/sec':<25} {summary_random['games_per_second']:.1f}                  {summary_q['games_per_second']:.1f}")
     
     # 4. Visualiser la politique apprise
     print("\n" + "=" * 60)
@@ -523,103 +528,6 @@ def demo_quarto():
         print("\nMatch nul!")
 
 
-def run_benchmark():
-    """
-    Benchmark complet aux differents checkpoints avec generation de graphiques.
-
-    Compare Random et Q-Learning sur GridWorld et LineWorld.
-    """
-    from deeprl.training.benchmark import quick_benchmark
-
-    print("=" * 60)
-    print("BENCHMARK COMPLET AVEC GRAPHIQUES")
-    print("=" * 60)
-
-    os.makedirs("results", exist_ok=True)
-
-    # =========================================
-    # BENCHMARK 1: GridWorld
-    # =========================================
-    print("\n" + "=" * 60)
-    print("BENCHMARK 1: GridWorld")
-    print("=" * 60)
-
-    env = GridWorld.create_simple(size=5)
-    print(f"\nEnvironnement: {env}")
-    print(f"Chemin optimal: {env.get_optimal_path_length()} steps")
-
-    agents_gridworld = {
-        'Random': RandomAgent(state_dim=env.state_dim, n_actions=env.n_actions),
-        'Q-Learning': TabularQLearning(
-            n_states=env.state_dim,
-            n_actions=env.n_actions,
-            lr=0.1,
-            gamma=0.99,
-            epsilon_start=1.0,
-            epsilon_end=0.01,
-            epsilon_decay=0.998
-        ),
-    }
-
-    checkpoints = [1000, 5000, 10000]
-
-    suite_gridworld = quick_benchmark(
-        env=env,
-        agents=agents_gridworld,
-        checkpoints=checkpoints,
-        eval_episodes=100,
-        verbose=True
-    )
-
-    print("\n" + suite_gridworld.get_csv_data())
-
-    # =========================================
-    # BENCHMARK 2: LineWorld
-    # =========================================
-    print("\n" + "=" * 60)
-    print("BENCHMARK 2: LineWorld")
-    print("=" * 60)
-
-    env_lw = LineWorld(size=7)
-    print(f"\nEnvironnement: {env_lw}")
-
-    agents_lineworld = {
-        'Random': RandomAgent(state_dim=env_lw.state_dim, n_actions=env_lw.n_actions),
-        'Q-Learning': TabularQLearning(
-            n_states=env_lw.state_dim,
-            n_actions=env_lw.n_actions,
-            lr=0.1,
-            gamma=0.99,
-            epsilon_start=1.0,
-            epsilon_end=0.01,
-            epsilon_decay=0.998
-        ),
-    }
-
-    suite_lineworld = quick_benchmark(
-        env=env_lw,
-        agents=agents_lineworld,
-        checkpoints=[500, 2000, 5000],
-        eval_episodes=100,
-        verbose=True
-    )
-
-    print("\n" + suite_lineworld.get_csv_data())
-
-    # =========================================
-    # RESUME FINAL
-    # =========================================
-    print("\n" + "=" * 60)
-    print("RESUME FINAL")
-    print("=" * 60)
-
-    print("\n--- GridWorld ---")
-    print(suite_gridworld.get_comparison_table())
-
-    print("\n--- LineWorld ---")
-    print(suite_lineworld.get_comparison_table())
-
-
 def demo_gui(env_name: str = "tictactoe", agent_name: str = None):
     """
     Lance l'interface graphique pour OBSERVER un agent jouer.
@@ -784,11 +692,6 @@ def main():
         description="DeepRL - Bibliotheque de Deep Reinforcement Learning"
     )
     parser.add_argument(
-        "--benchmark",
-        action="store_true",
-        help="Lancer le benchmark complet"
-    )
-    parser.add_argument(
         "--gui",
         action="store_true",
         help="Lancer l'interface graphique (observer un agent)"
@@ -818,9 +721,7 @@ def main():
     print("    DeepRL - Deep Reinforcement Learning Library")
     print("=" * 60 + "\n")
 
-    if args.benchmark:
-        run_benchmark()
-    elif args.gui:
+    if args.gui:
         demo_gui(args.env, agent_name=args.agent)
     elif args.play:
         demo_human_vs_agent(args.env, agent_name=args.agent)

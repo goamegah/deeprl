@@ -89,7 +89,7 @@ AGENT_REGISTRY: Dict[str, Dict[str, Any]] = {
         "Random":                     lambda: RandomAgent(state_dim=27, n_actions=9)
     },
     "quarto": {
-        "Random":                     lambda: RandomAgent(state_dim=114, n_actions=16)
+        "Random":                     lambda: RandomAgent(state_dim=114, n_actions=32)
     },
 }
 
