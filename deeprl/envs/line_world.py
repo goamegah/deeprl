@@ -5,7 +5,7 @@ Un monde linéaire simple où l'agent peut se déplacer à gauche ou à droite.
 L'objectif est d'atteindre l'extrémité droite tout en évitant l'extrémité gauche.
 
 Paramètres du constructeur:
-    size: Longueur de la ligne (par défaut: 7)
+    size: Longueur de la ligne (par défaut: 5)
 
 Caractéristiques:
     - États: size
@@ -15,9 +15,9 @@ Caractéristiques:
         * extrémité gauche (position 0) : récompense négative -1.0
         * extrémité droite (position size-1) : récompense positive +1.0
 
-Schéma (size=7):
-    [F][ ][ ][S][ ][ ][G]
-     0  1  2  3  4  5  6
+Schéma (size=5):
+    [F][ ][S][ ][G]
+     0  1  2  3  4
     
     S = Start (position initiale au milieu)
     G = Goal (succès, +1.0)
@@ -50,7 +50,7 @@ class LineWorld(Environment):
         - Position size-1 (extrémité droite) : reward = +1.0
     
     Exemple d'utilisation:
-        >>> env = LineWorld(size=7)
+        >>> env = LineWorld(size=5)
         >>> state = env.reset()  # Démarre au milieu
         >>> next_state, reward, done = env.step(1)  # Aller à droite
     """
@@ -64,7 +64,7 @@ class LineWorld(Environment):
     REWARD_FAILURE = -1.0  # Atteindre l'extrémité gauche
     REWARD_STEP = 0.0      # Déplacement normal
     
-    def __init__(self, size: int = 7):
+    def __init__(self, size: int = 5):
         """
         Crée un environnement LineWorld.
         
@@ -79,7 +79,6 @@ class LineWorld(Environment):
         self.size = size
         self._start_position = size // 2  # Position initiale au milieu
         self._position = self._start_position
-        self._state = None
         
     @property
     def state_shape(self) -> Tuple[int, ...]:
@@ -107,8 +106,7 @@ class LineWorld(Environment):
         """
         self._position = self._start_position
         self._done = False
-        self._state = self._position_to_state(self._position)
-        return self._state.copy()
+        return self.get_state()
     
     def step(self, action: int) -> Tuple[np.ndarray, float, bool]:
         """
@@ -143,10 +141,7 @@ class LineWorld(Environment):
             reward = self.REWARD_FAILURE  # -1.0
             self._done = True
         
-        # Mettre à jour l'état
-        self._state = self._position_to_state(self._position)
-        
-        return self._state.copy(), reward, self._done
+        return self.get_state(), reward, self._done
     
     def get_available_actions(self) -> List[int]:
         """
@@ -157,27 +152,19 @@ class LineWorld(Environment):
         """
         return [self.LEFT, self.RIGHT]
     
-    def _position_to_state(self, position: int) -> np.ndarray:
-        """
-        Convertit une position en état one-hot.
-        
-        Args:
-            position: Position sur la ligne (0 à size-1)
-        
-        Returns:
-            Vecteur one-hot de taille `size`
-        """
+    def get_state(self) -> np.ndarray:
+        """Vecteur one-hot de la position courante."""
         state = np.zeros(self.size, dtype=np.float32)
-        state[position] = 1.0
+        state[self._position] = 1.0
         return state
     
     def render(self, mode: str = "text") -> str:
         """
         Affiche l'environnement en mode texte.
         
-        Exemple de sortie pour position=3, size=7:
-            [F][ ][ ][A][ ][ ][G]
-             0  1  2  3  4  5  6
+        Exemple de sortie pour position=2, size=5:
+            [F][ ][A][ ][G]
+             0  1  2  3  4
         
         A = Agent
         G = Goal (succès, +1.0)
@@ -203,6 +190,20 @@ class LineWorld(Environment):
             print(output)
         
         return output
+    
+    def clone(self) -> "LineWorld":
+        """Clone l'environnement."""
+        env = LineWorld(self.size)
+        env._position = self._position
+        env._done = self._done
+        return env
+    
+    def determinize(self, obs: np.ndarray) -> "LineWorld":
+        """Reconstruit un LineWorld jouable à partir d'une observation one-hot."""
+        env = LineWorld(self.size)
+        env._position = int(np.argmax(obs))
+        env._done = (env._position == 0 or env._position == self.size - 1)
+        return env
     
     def __repr__(self) -> str:
         return f"LineWorld(size={self.size}, position={self._position})"

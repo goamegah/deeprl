@@ -172,7 +172,7 @@ square = (piece_id >> 3) & 1   # bit 3
 
 | Environnement | State dim | Encodage |
 |---------------|-----------|----------|
-| LineWorld(7) | 7 | One-hot de la position |
+| LineWorld(5) | 5 | One-hot de la position |
 | GridWorld(5) | 25 | One-hot de (row, col) → `row * 5 + col` |
 | TicTacToe | 27 | 9 cases x 3 canaux : `[vide, X, O]` |
 

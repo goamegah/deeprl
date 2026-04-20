@@ -38,7 +38,6 @@ class Environment(ABC):
             name: Nom descriptif de l'environnement
         """
         self.name = name
-        self._state: Optional[np.ndarray] = None
         self._done: bool = False
         self._current_player: int = 0  # Pour les jeux à plusieurs joueurs
     
@@ -144,6 +143,7 @@ class Environment(ABC):
         """
         pass
     
+    @abstractmethod
     def get_state(self) -> np.ndarray:
         """
         Retourne l'état courant de l'environnement.
@@ -151,19 +151,22 @@ class Environment(ABC):
         Returns:
             L'état actuel sous forme de numpy array.
         """
-        return self._state.copy() if self._state is not None else None
+        pass
     
-    def is_action_valid(self, action: int) -> bool:
+    def action_mask(self) -> np.ndarray:
         """
-        Vérifie si une action est valide dans l'état courant.
+        Masque booléen des actions légales (taille n_actions).
         
-        Args:
-            action: L'indice de l'action à vérifier.
+        Utilisé par les réseaux de neurones pour masquer les logits
+        des actions illégales avant le softmax.
         
         Returns:
-            True si l'action est valide, False sinon.
+            Array booléen, True = action légale.
         """
-        return action in self.get_available_actions()
+        mask = np.zeros(self.n_actions, dtype=bool)
+        for a in self.get_available_actions():
+            mask[a] = True
+        return mask
     
     def render(self, mode: str = "text") -> Optional[str]:
         """
@@ -176,7 +179,7 @@ class Environment(ABC):
             Représentation textuelle si mode="text", None sinon.
         """
         # Implémentation par défaut
-        return str(self._state)
+        return str(self.get_state())
     
     def clone(self) -> "Environment":
         """
@@ -190,6 +193,28 @@ class Environment(ABC):
         """
         import copy
         return copy.deepcopy(self)
+    
+    @abstractmethod
+    def determinize(self, obs: np.ndarray) -> "Environment":
+        """
+        Reconstruit un environnement jouable à partir d'une observation.
+        
+        Crée un clone dont l'état interne est cohérent avec l'observation
+        donnée. Indispensable pour les algorithmes de planification (MCTS)
+        qui simulent à partir d'un état observé.
+        
+        - Jeux à information parfaite : décode l'observation en état complet.
+        - Jeux à information imparfaite : échantillonne l'information cachée.
+        - Jeux à 2 joueurs : restaure le joueur courant, la phase de jeu,
+          et toute information nécessaire pour continuer la partie.
+        
+        Args:
+            obs: Vecteur d'observation (tel que retourné par get_state).
+        
+        Returns:
+            Un environnement indépendant, prêt à être joué.
+        """
+        pass
     
     def __repr__(self) -> str:
         return f"{self.name}(state_shape={self.state_shape}, n_actions={self.n_actions})"

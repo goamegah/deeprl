@@ -70,7 +70,7 @@ Issues = "https://github.com/goamegah/deeprl/issues"
 deeprl = "main:main"
 
 [tool.setuptools]
-packages = ["deeprl", "deeprl.envs", "deeprl.agents", "deeprl.agents.tabular", "deeprl.agents.value_based", "deeprl.agents.policy_based", "deeprl.agents.planning", "deeprl.agents.imitation", "deeprl.networks", "deeprl.memory", "deeprl.training", "deeprl.gui"]
+packages = ["deeprl", "deeprl.envs", "deeprl.agents", "deeprl.agents.tabular", "deeprl.agents.value_based", "deeprl.networks", "deeprl.memory", "deeprl.training", "deeprl.gui"]
 
 [tool.setuptools.package-data]
 deeprl = ["py.typed"]

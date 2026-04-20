@@ -169,33 +169,27 @@ class Quarto(Environment):
         return self.get_state()
     
     def get_state(self) -> np.ndarray:
-        """Retourne l'état du jeu (compact, 114D)."""
-        return self._get_compact_state()
-    
-    def _get_compact_state(self) -> np.ndarray:
         """
-        État compact: 114 dimensions.
+        Retourne l'état du jeu (114 dimensions).
         
         Structure:
-        - Plateau: 16 positions × 5 channels (4 attributs + présence)
+        - Plateau: 16 positions × 5 channels (4 attributs + présence) = 80
         - Pièce courante: 16 dims (one-hot, 0 si aucune)
         - Pièces disponibles: 16 dims (binaire)
         - Joueur courant: 2 dims (one-hot)
         """
-        state = np.zeros(self.state_dim, dtype=np.float32)
+        state = np.zeros(self._state_dim, dtype=np.float32)
         idx = 0
         
         # Plateau (80 dims)
         for pos in range(self.N_POSITIONS):
             piece_id = self._board[pos]
             if piece_id >= 0:
-                # Présence
                 state[idx] = 1.0
-                # Attributs (normalisés à 0/1)
-                state[idx + 1] = float(piece_id & 1)  # tall
-                state[idx + 2] = float((piece_id >> 1) & 1)  # dark
-                state[idx + 3] = float((piece_id >> 2) & 1)  # solid
-                state[idx + 4] = float((piece_id >> 3) & 1)  # square
+                state[idx + 1] = float(piece_id & 1)       # tall
+                state[idx + 2] = float((piece_id >> 1) & 1) # dark
+                state[idx + 3] = float((piece_id >> 2) & 1) # solid
+                state[idx + 4] = float((piece_id >> 3) & 1) # square
             idx += 5
         
         # Pièce courante (16 dims)
@@ -224,7 +218,7 @@ class Quarto(Environment):
             (state, reward, done)
         """
         if self._done:
-            return self.get_state(), 0.0, True
+            raise RuntimeError("Partie terminée. Appelez reset().")
         
         if self._phase == "place":
             # Action 0-15 : placer la pièce courante
@@ -323,18 +317,66 @@ class Quarto(Environment):
         env._move_count = self._move_count
         return env
     
-    def render(self) -> None:
+    def determinize(self, obs: np.ndarray) -> "Quarto":
+        """
+        Reconstruit un Quarto jouable à partir d'une observation (114D).
+        
+        Décode plateau, pièce courante, joueur courant et phase de jeu.
+        """
+        env = Quarto()
+        env._available_pieces = set(range(self.N_PIECES))
+        
+        # Décoder le plateau (16 blocs de 5)
+        for pos in range(self.N_POSITIONS):
+            base = pos * 5
+            if obs[base] > 0.5:
+                piece_id = (
+                    int(obs[base + 1] > 0.5)
+                    | (int(obs[base + 2] > 0.5) << 1)
+                    | (int(obs[base + 3] > 0.5) << 2)
+                    | (int(obs[base + 4] > 0.5) << 3)
+                )
+                env._board[pos] = piece_id
+                env._available_pieces.discard(piece_id)
+        
+        # Pièce courante (one-hot, offset 80)
+        piece_section = obs[80:96]
+        if np.any(piece_section > 0.5):
+            env._current_piece = int(np.argmax(piece_section))
+        else:
+            env._current_piece = None
+        
+        # Joueur courant (one-hot, offset 112)
+        env._current_player = int(np.argmax(obs[112:114]))
+        
+        # Phase et état déduits
+        env._phase = "place" if env._current_piece is not None else "give"
+        env._move_count = sum(1 for p in range(self.N_POSITIONS) if env._board[p] >= 0)
+        env._done = False
+        env._winner = None
+        
+        if env._check_win():
+            env._done = True
+            env._winner = env._current_player
+        elif len(env._available_pieces) == 0 and env._current_piece is None:
+            env._done = True
+            env._winner = -1
+        
+        return env
+    
+    def render(self, mode: str = "text") -> Optional[str]:
         """Affiche le plateau."""
-        print(f"\n{'='*40}")
-        print(f"Quarto - Tour: Joueur {self._current_player + 1}")
-        print(f"Phase: {self._phase.upper()}")
+        lines = []
+        lines.append(f"\n{'='*40}")
+        lines.append(f"Quarto - Tour: Joueur {self._current_player + 1}")
+        lines.append(f"Phase: {self._phase.upper()}")
         if self._current_piece is not None:
             piece = QuartoPiece.from_id(self._current_piece)
-            print(f"Pièce à placer: {piece} (ID: {self._current_piece})")
-        print()
+            lines.append(f"Pièce à placer: {piece} (ID: {self._current_piece})")
+        lines.append("")
         
         # Afficher le plateau
-        print("+------+------+------+------+")
+        lines.append("+------+------+------+------+")
         for row in range(4):
             line = "|"
             for col in range(4):
@@ -345,17 +387,21 @@ class Quarto(Environment):
                     line += f" {piece} |"
                 else:
                     line += f"  {pos:2d}  |"
-            print(line)
-            print("+------+------+------+------+")
+            lines.append(line)
+            lines.append("+------+------+------+------+")
         
         # Pièces disponibles
-        print(f"\nPièces disponibles: {sorted(self._available_pieces)}")
+        lines.append(f"\nPièces disponibles: {sorted(self._available_pieces)}")
         
         if self._done:
             if self._winner >= 0:
-                print(f"\nVictoire: Joueur {self._winner + 1}!")
+                lines.append(f"\nVictoire: Joueur {self._winner + 1}!")
             else:
-                print("\nMatch nul!")
+                lines.append("\nMatch nul!")
+
+        text = "\n".join(lines)
+        print(text)
+        return text
     
     def get_symmetries(
         self,

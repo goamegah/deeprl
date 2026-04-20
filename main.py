@@ -20,49 +20,16 @@ Usage:
 """
 
 import argparse
-import os
 import sys
 
 from deeprl.envs import LineWorld, GridWorld, TicTacToe, Quarto
-from deeprl.agents import (
-    RandomAgent, TabularQLearning
-)
+from deeprl.agents import RandomAgent
 from deeprl.training import Trainer
-
-# ============================================================================
-# REGISTRY : pour chaque (env, agent_name), comment recréer l'agent
-# ============================================================================
-
-AGENT_REGISTRY = {
-    "lineworld": {
-        "Random":                   lambda: RandomAgent(state_dim=7, n_actions=2),
-        "TabularQLearning":         lambda: TabularQLearning(n_states=7, n_actions=2, lr=0.1, gamma=0.99)
-    },
-    "gridworld": {
-        "Random":                   lambda: RandomAgent(state_dim=25, n_actions=4),
-        "TabularQLearning":         lambda: TabularQLearning(n_states=25, n_actions=4, lr=0.1, gamma=0.99)
-    },
-    "tictactoe": {
-        "Random":                   lambda: RandomAgent(state_dim=27, n_actions=9)
-    },
-    "quarto": {
-        "Random":                   lambda: RandomAgent(state_dim=114, n_actions=32)
-    },
-}
-
-# Agents qui n'ont pas besoin d'entraînement (pas de .pt à charger)
-NO_TRAINING_AGENTS = {"Random"}
-
-# Agents qui ont besoin du param env= dans act()
-NEEDS_ENV_AGENTS = set()
-
-# Agent par défaut pour chaque env (utilisé si --agent non spécifié)
-DEFAULT_AGENT = {
-    "lineworld": "Random",
-    "gridworld": "Random",
-    "tictactoe": "Random",
-    "quarto": "Random",
-}
+from deeprl.registry import (
+    AGENT_REGISTRY, NO_TRAINING_AGENTS, DEFAULT_AGENT,
+    QUICK_TRAIN_EPISODES, DEFAULT_FPS,
+    make_env, make_env_2player, find_latest_model,
+)
 
 
 def demo_lineworld():
@@ -73,7 +40,7 @@ def demo_lineworld():
     print("DEMO: LineWorld (Random)")
     print("=" * 60)
 
-    env = LineWorld(size=7)
+    env = LineWorld(size=5)
     agent = RandomAgent(state_dim=env.state_dim, n_actions=env.n_actions)
 
     print(f"\nEnvironnement: {env}")
@@ -420,10 +387,7 @@ def demo_pvp(env_name: str = "tictactoe"):
         print("   Environnements supportes: tictactoe, quarto")
         return
 
-    if env_name == "tictactoe":
-        env = TicTacToe()
-    else:
-        env = Quarto()
+    env = make_env_2player(env_name)
 
     print(f"\nEnvironnement: {env.name}")
     print("Mode: Humain vs Humain (meme ecran)")
@@ -460,10 +424,7 @@ def demo_human_vs_agent(env_name: str = "tictactoe", agent_name: str = None):
 
     # Jeux 1 joueur → humain joue directement (pas d'agent adversaire)
     if env_name in ("lineworld", "gridworld"):
-        if env_name == "lineworld":
-            env = LineWorld(size=5)
-        else:
-            env = GridWorld.create_simple(size=5)
+        env = make_env_2player(env_name)
 
         print(f"\nEnvironnement: {env.name}")
         print("Mode: Humain (vous jouez!)")
@@ -503,65 +464,54 @@ def _build_gui_env_agent(env_name: str, agent_name: str = None, mode: str = "wat
     Logique:
     1. Si agent_name fourni → utilise cet agent
     2. Sinon → utilise l'agent par defaut pour cet env
-    3. Si un modele .pt existe dans results/models/ → le charge
+    3. Cherche un modele .pt dans results/ (via find_latest_model)
     4. Sinon, pour les agents apprenants → entrainement rapide
 
     Returns:
         (env, agent, fps)
     """
-    env_base = env_name
-
     # Resoudre l'agent
     if agent_name is None:
-        agent_name = DEFAULT_AGENT.get(env_base, "Random")
+        agent_name = DEFAULT_AGENT.get(env_name, "Random")
 
     # Verifier que l'agent existe pour cet env
-    registry = AGENT_REGISTRY.get(env_base, {})
+    registry = AGENT_REGISTRY.get(env_name, {})
     if agent_name not in registry:
         available = list(registry.keys())
-        print(f"\n[ERREUR] Agent '{agent_name}' non disponible pour '{env_base}'.")
+        print(f"\n[ERREUR] Agent '{agent_name}' non disponible pour '{env_name}'.")
         print(f"  Agents disponibles: {available}")
-        print(f"  Usage: python main.py --gui --env {env_base} --agent {available[0] if available else '...'}")
+        print(f"  Usage: python main.py --gui --env {env_name} --agent {available[0] if available else '...'}")
         sys.exit(1)
 
-    # Creer l'environnement
-    if env_base == "lineworld":
-        env = LineWorld(size=5)
-    elif env_base == "gridworld":
-        env = GridWorld.create_simple(size=5)
-    elif env_base == "tictactoe":
-        env = TicTacToe()
-    elif env_base == "quarto":
-        env = Quarto()
-    else:
-        env = GridWorld.create_simple(size=5)
+    # Creer l'environnement (2 joueurs brut pour le GUI)
+    env = make_env_2player(env_name)
 
     # Creer l'agent
     agent = registry[agent_name]()
 
     # Tenter de charger un modele sauvegarde
-    safe_name = agent_name.replace(" ", "_").replace("/", "_")
-    model_path = os.path.join("results", "models", env_base, f"{safe_name}.pt")
+    fps = DEFAULT_FPS.get(env_name, 2)
 
     if agent_name in NO_TRAINING_AGENTS:
-        # Random → pas de modele a charger
         print(f"\n  Agent: {agent_name} (pas de modele necessaire)")
-    elif os.path.exists(model_path):
-        # Modele trouve → charger
-        agent.load(model_path)
-        agent.set_training_mode(False)
-        print(f"\n  Modele charge: {model_path}")
-        print(f"  ({agent.episodes_played} episodes d'entrainement)")
     else:
-        # Pas de modele → entrainement rapide
-        print(f"\n  [INFO] Pas de modele trouve pour {agent_name} ({model_path})")
-        print(f"  Entrainement rapide en cours...")
-        n_ep = 2000 if env_base in ("gridworld", "lineworld") else 1000
-        _quick_train(env, agent, n_ep)
-        agent.set_training_mode(False)
-        print(f"  Entrainement termine ({n_ep} episodes)")
+        model_path = find_latest_model(env_name, agent_name)
+        if model_path:
+            agent.load(model_path)
+            agent.set_training_mode(False)
+            print(f"\n  Modele charge: {model_path}")
+            print(f"  ({agent.episodes_played} episodes d'entrainement)")
+        else:
+            # Pas de modele → entrainement rapide sur env VsRandom
+            n_ep = QUICK_TRAIN_EPISODES.get(env_name, 1000)
+            print(f"\n  [INFO] Pas de modele trouve pour {agent_name}")
+            print(f"  Entrainement rapide ({n_ep} episodes)...")
+            train_env = make_env(env_name)
+            _quick_train(train_env, agent, n_ep)
+            agent.set_training_mode(False)
+            print(f"  Entrainement termine")
 
-    return env, agent, 2
+    return env, agent, fps
 
 
 def _quick_train(env, agent, n_episodes: int):
@@ -600,7 +550,7 @@ def main():
         "--env",
         type=str,
         default="gridworld",
-        choices=["lineworld", "gridworld", "tictactoe", "quarto"],
+        choices=list(AGENT_REGISTRY.keys()),
         help="Environnement a demontrer"
     )
 

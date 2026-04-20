@@ -89,7 +89,7 @@ class GridWorld(Environment):
         """Réinitialise l'agent au départ."""
         self._agent_pos = self.start_pos
         self._done = False
-        return self._get_state()
+        return self.get_state()
     
     def step(self, action: int) -> Tuple[np.ndarray, float, bool]:
         """
@@ -121,20 +121,20 @@ class GridWorld(Environment):
         else:
             reward = self.REWARD_STEP
         
-        return self._get_state(), reward, self._done
+        return self.get_state(), reward, self._done
     
     def get_available_actions(self) -> List[int]:
         """Retourne toutes les actions (0-3)."""
         return [0, 1, 2, 3]
     
-    def _get_state(self) -> np.ndarray:
-        """Construit le vecteur one-hot de la position."""
+    def get_state(self) -> np.ndarray:
+        """Vecteur one-hot de la position courante."""
         state = np.zeros(self.size * self.size, dtype=np.float32)
         idx = self._agent_pos[0] * self.size + self._agent_pos[1]
         state[idx] = 1.0
         return state
     
-    def render(self) -> str:
+    def render(self, mode: str = "text") -> str:
         """Affiche la grille."""
         lines = ["+" + "---+" * self.size]
         
@@ -163,6 +163,14 @@ class GridWorld(Environment):
         env = GridWorld(self.size)
         env._agent_pos = self._agent_pos
         env._done = self._done
+        return env
+    
+    def determinize(self, obs: np.ndarray) -> "GridWorld":
+        """Reconstruit un GridWorld jouable à partir d'une observation one-hot."""
+        env = GridWorld(self.size)
+        idx = int(np.argmax(obs))
+        env._agent_pos = (idx // self.size, idx % self.size)
+        env._done = (env._agent_pos == self.goal_pos or env._agent_pos == self.fail_pos)
         return env
     
     # ------------------------------------------------------------------

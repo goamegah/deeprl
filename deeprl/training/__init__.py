@@ -7,20 +7,12 @@ Contient:
 - Benchmark: Benchmarking complet avec graphiques
 """
 
-from deeprl.training.trainer import Trainer
-from deeprl.training.evaluator import Evaluator
-from deeprl.training.benchmark import (
-    Benchmark,
-    BenchmarkSuite,
-    AgentBenchmarkResult,
-    quick_benchmark
-)
+from deeprl.training.trainer import Trainer, TrainingMetrics
+from deeprl.training.evaluator import Evaluator, EvaluationResults
 
 __all__ = [
     "Trainer",
+    "TrainingMetrics",
     "Evaluator",
-    "Benchmark",
-    "BenchmarkSuite",
-    "AgentBenchmarkResult",
-    "quick_benchmark",
+    "EvaluationResults",
 ]

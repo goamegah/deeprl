@@ -287,65 +287,6 @@ class Evaluator:
             return "draw"
 
 
-def benchmark_agent(
-    env: Environment,
-    agent: Agent,
-    training_episodes: List[int] = [1000, 10000, 100000],
-    eval_episodes: int = 100,
-    verbose: bool = True
-) -> Dict[int, EvaluationResults]:
-    """
-    Benchmark complet d'un agent aux différents checkpoints.
-    
-    Entraîne l'agent et l'évalue à plusieurs points de l'entraînement.
-    
-    Args:
-        env: L'environnement
-        agent: L'agent à benchmarker
-        training_episodes: Points de mesure
-        eval_episodes: Nombre d'épisodes d'évaluation à chaque point
-        verbose: Afficher la progression
-    
-    Returns:
-        Dictionnaire mapping checkpoint -> résultats d'évaluation
-    """
-    from deeprl.training.trainer import Trainer
-    
-    results = {}
-    trainer = Trainer(env, agent, verbose=verbose)
-    evaluator = Evaluator(env, agent, verbose=verbose)
-    
-    previous_episodes = 0
-    
-    for checkpoint in sorted(training_episodes):
-        episodes_to_train = checkpoint - previous_episodes
-        
-        if verbose:
-            print(f"\n{'='*50}")
-            print(f"Training until {checkpoint} episodes...")
-        
-        # Entraîner jusqu'au checkpoint
-        if episodes_to_train > 0:
-            trainer.train(n_episodes=episodes_to_train)
-        
-        if verbose:
-            print(f"Evaluating after {checkpoint} episodes...")
-        
-        # Évaluer
-        eval_results = evaluator.evaluate(n_episodes=eval_episodes)
-        results[checkpoint] = eval_results
-        
-        if verbose:
-            summary = eval_results.get_summary()
-            print(f"  Mean Score: {summary['mean_score']:.3f}")
-            print(f"  Mean Length: {summary['mean_length']:.1f}")
-            print(f"  Mean Action Time: {summary['mean_action_time']*1000:.3f}ms")
-        
-        previous_episodes = checkpoint
-    
-    return results
-
-
 # Test rapide si exécuté directement
 if __name__ == "__main__":
     from deeprl.envs.line_world import LineWorld

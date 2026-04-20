@@ -27,6 +27,7 @@ Limitations:
 """
 
 import numpy as np
+import torch
 from typing import List, Optional, Dict, Any
 from deeprl.agents.base import Agent
 
@@ -203,6 +204,8 @@ class TabularQLearning(Agent):
         Returns:
             Dictionnaire avec la TD error
         """
+        available_actions_next = kwargs.get("available_actions_next")
+        
         state_idx = self._state_to_index(state)
         next_state_idx = self._state_to_index(next_state)
         
@@ -214,9 +217,11 @@ class TabularQLearning(Agent):
             # Si terminé, pas de valeur future
             target = reward
         else:
-            # Sinon, utiliser la meilleure action future
-            # C'est le "max" qui fait de Q-Learning un algorithme off-policy
-            next_max_q = np.max(self.q_table[next_state_idx])
+            # max sur les actions légales uniquement (S&B Ch.6.5)
+            if available_actions_next is not None and len(available_actions_next) > 0:
+                next_max_q = max(self.q_table[next_state_idx, a] for a in available_actions_next)
+            else:
+                next_max_q = np.max(self.q_table[next_state_idx])
             target = reward + self.gamma * next_max_q
         
         # TD Error (Temporal Difference Error)
@@ -280,7 +285,6 @@ class TabularQLearning(Agent):
     
     def save(self, path: str) -> None:
         """Sauvegarde l'agent."""
-        import torch
         save_dict = {
             "name": self.name,
             "n_states": self.n_states,
@@ -299,7 +303,6 @@ class TabularQLearning(Agent):
     
     def load(self, path: str) -> None:
         """Charge l'agent."""
-        import torch
         checkpoint = torch.load(path, map_location="cpu", weights_only=False)
         q_table = checkpoint["q_table"]
         # Convertir de liste si necessaire

@@ -34,10 +34,9 @@ Sorties :
 import argparse
 import json
 import os
-import sys
 import time
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 
 import numpy as np
 
@@ -45,131 +44,21 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 
-from deeprl.envs import (
-    LineWorld, GridWorld,
-    TicTacToe, TicTacToeVsRandom,
-    Quarto, QuartoVsRandom,
-)
-from deeprl.agents import (
-    RandomAgent, TabularQLearning
-)
 from deeprl.training import Trainer, Evaluator
+from deeprl.registry import (
+    AGENT_REGISTRY, NO_TRAINING_AGENTS,
+    make_env,
+)
 
 
 # ============================================================================
 # CONSTANTES
 # ============================================================================
 
-DEFAULT_CHECKPOINTS = [1_000, 10_000, 100_000]
+DEFAULT_CHECKPOINTS = [1_000, 10_000, 100_000, 1_000_000]
 EVAL_EPISODES = 100
 MAX_STEPS = 200
-
-# Catégories d'agents (déterminent le mode d'entraînement)
-NO_TRAINING_AGENTS = {"Random", "RandomRollout", "MCTS"}
-ALPHAZERO_AGENTS = {"AlphaZero"}
-IMITATION_AGENTS = {"ExpertApprentice_BC", "ExpertApprentice_DAgger"}
-
-
-# ============================================================================
-# REGISTRE DES AGENTS — hyperparamètres calibrés par environnement
-# ============================================================================
-
-AGENT_REGISTRY: Dict[str, Dict[str, Any]] = {
-    "lineworld": {
-        "Random":                     lambda: RandomAgent(state_dim=7, n_actions=2),
-        "TabularQLearning":           lambda: TabularQLearning(n_states=7, n_actions=2, lr=0.1, gamma=0.99)
-    },
-    "gridworld": {
-        "Random":                     lambda: RandomAgent(state_dim=25, n_actions=4),
-        "TabularQLearning":           lambda: TabularQLearning(n_states=25, n_actions=4, lr=0.1, gamma=0.99)
-    },
-    "tictactoe": {
-        "Random":                     lambda: RandomAgent(state_dim=27, n_actions=9)
-    },
-    "quarto": {
-        "Random":                     lambda: RandomAgent(state_dim=114, n_actions=32)
-    },
-}
-
-
-# ============================================================================
-# CRÉATION D'ENVIRONNEMENTS
-# ============================================================================
-
-def make_env(env_name: str):
-    """Crée l'environnement d'entraînement / évaluation."""
-    if env_name == "lineworld":
-        return LineWorld(size=7)
-    elif env_name == "gridworld":
-        return GridWorld.create_simple(size=5)
-    elif env_name == "tictactoe":
-        return TicTacToeVsRandom()
-    elif env_name == "quarto":
-        return QuartoVsRandom()
-    raise ValueError(f"Environnement inconnu : {env_name}")
-
-
-def make_env_2player(env_name: str):
-    """Crée l'env 2 joueurs (self-play AlphaZero, imitation)."""
-    if env_name == "tictactoe":
-        return TicTacToe()
-    elif env_name == "quarto":
-        return Quarto()
-    return make_env(env_name)
-
-
-# ============================================================================
-# BOUCLES D'ENTRAÎNEMENT SPÉCIALISÉES
-# ============================================================================
-
-def train_standard(env, agent, n_episodes: int) -> List[float]:
-    """
-    Entraînement standard (Q-Learning, DQN, REINFORCE, PPO, MuZero…).
-    Utilise le Trainer qui passe env= à act() automatiquement.
-
-    Returns:
-        Liste des récompenses par épisode.
-    """
-    trainer = Trainer(env, agent, verbose=True, log_interval=max(100, n_episodes // 10))
-    trainer.train(n_episodes=n_episodes, max_steps_per_episode=MAX_STEPS)
-    return list(trainer.metrics.episode_rewards)
-
-
-def train_alphazero(env_2player, agent, n_games: int) -> List[float]:
-    """
-    Entraînement AlphaZero par self-play.
-
-    Joue n_games parties de self-play puis entraîne le réseau.
-
-    Returns:
-        Liste vide (pas de courbe épisodique standard).
-    """
-    print(f"    Self-play ({n_games} parties)…")
-    examples = agent.self_play(env_2player, n_games=n_games, verbose=False)
-    if examples:
-        print(f"    Entraînement sur {len(examples)} exemples…")
-        agent.train_on_examples(examples, n_epochs=10, batch_size=64)
-    return []
-
-
-def train_imitation(env_2player, agent, n_iterations: int) -> List[float]:
-    """
-    Entraînement par imitation (BC ou DAgger).
-
-    Returns:
-        Liste vide.
-    """
-    print(f"    Imitation ({agent.mode}, {n_iterations} itérations)…")
-    agent.train(
-        env_2player,
-        n_iterations=n_iterations,
-        episodes_per_iteration=20,
-        epochs_per_iteration=50,
-        verbose=False,
-    )
-    return []
 
 
 # ============================================================================
@@ -279,16 +168,7 @@ def run_experiment(
         # Créer l'agent
         agent = registry[agent_name]()
         env = make_env(env_name)
-
-        # Déterminer le mode d'entraînement
-        if agent_name in NO_TRAINING_AGENTS:
-            training_mode = "none"
-        elif agent_name in ALPHAZERO_AGENTS:
-            training_mode = "alphazero"
-        elif agent_name in IMITATION_AGENTS:
-            training_mode = "imitation"
-        else:
-            training_mode = "standard"
+        needs_training = agent_name not in NO_TRAINING_AGENTS
 
         # Initialiser les structures
         if agent_name not in all_metrics:
@@ -305,7 +185,7 @@ def run_experiment(
             continue
 
         # Charger le modèle du dernier checkpoint (resume)
-        if done_ckpts and agent_name not in NO_TRAINING_AGENTS:
+        if done_ckpts and needs_training:
             last_done = max(done_ckpts)
             # Essayer le nouveau format, puis l'ancien
             model_path = os.path.join(models_dir, f"{agent_name}_ckpt{last_done}.pt")
@@ -319,7 +199,7 @@ def run_experiment(
                     print(f"    [WARN] Impossible de charger : {e}")
 
         # ── Agents sans entraînement : évaluer une seule fois ──
-        if training_mode == "none":
+        if not needs_training:
             print(f"    Évaluation ({eval_episodes} épisodes)…")
             metrics = evaluate_agent(env, agent, n_episodes=eval_episodes)
             for ckpt in sorted_ckpts:
@@ -329,33 +209,17 @@ def run_experiment(
         # ── Entraînement incrémental aux checkpoints ──
         else:
             prev_ckpt = max(done_ckpts) if done_ckpts else 0
-
-            # Trainer réutilisé entre checkpoints (accumule les métriques)
-            trainer = None
-            if training_mode == "standard":
-                trainer = Trainer(env, agent, verbose=True,
-                                  log_interval=max(100, sorted_ckpts[0] // 10))
+            trainer = Trainer(env, agent, verbose=True,
+                              log_interval=max(100, sorted_ckpts[0] // 10))
 
             for ckpt in remaining_ckpts:
                 episodes_needed = ckpt - prev_ckpt
                 t0 = time.time()
 
                 print(f"    Entraînement → {ckpt:,} épisodes (+{episodes_needed:,})…")
-
-                if training_mode == "standard":
-                    trainer.train(n_episodes=episodes_needed,
-                                  max_steps_per_episode=MAX_STEPS)
-                    all_curves[agent_name] = list(trainer.metrics.episode_rewards)
-
-                elif training_mode == "alphazero":
-                    env_2p = make_env_2player(env_name)
-                    train_alphazero(env_2p, agent, n_games=episodes_needed)
-
-                elif training_mode == "imitation":
-                    env_2p = make_env_2player(env_name)
-                    n_iter = max(1, episodes_needed // 20)
-                    train_imitation(env_2p, agent, n_iterations=n_iter)
-
+                trainer.train(n_episodes=episodes_needed,
+                              max_steps_per_episode=MAX_STEPS)
+                all_curves[agent_name] = list(trainer.metrics.episode_rewards)
                 train_time = time.time() - t0
 
                 # Évaluation
@@ -366,15 +230,14 @@ def run_experiment(
 
                 _print_metrics(metrics)
 
-                # Sauvegarder le modèle à chaque checkpoint (reproductibilité)
-                if agent_name not in NO_TRAINING_AGENTS:
-                    model_path = os.path.join(
-                        models_dir, f"{agent_name}_ckpt{ckpt}.pt"
-                    )
-                    try:
-                        agent.save(model_path)
-                    except Exception as e:
-                        print(f"    [WARN] Save échoué : {e}")
+                # Sauvegarder le modèle (reproductibilité)
+                model_path = os.path.join(
+                    models_dir, f"{agent_name}_ckpt{ckpt}.pt"
+                )
+                try:
+                    agent.save(model_path)
+                except Exception as e:
+                    print(f"    [WARN] Save échoué : {e}")
 
                 prev_ckpt = ckpt
 
@@ -382,7 +245,7 @@ def run_experiment(
                 _save_json(os.path.join(env_dir, "metrics.json"), all_metrics)
                 _save_json(os.path.join(env_dir, "training_curves.json"), all_curves)
 
-    # Sauvegardes finales
+    # Sauvegardes finales (couvre le cas des agents sans entraînement)
     _save_json(os.path.join(env_dir, "metrics.json"), all_metrics)
     _save_json(os.path.join(env_dir, "training_curves.json"), all_curves)
 
@@ -419,6 +282,14 @@ def _load_json(path: str) -> Any:
         return json.load(f)
 
 
+def _load_run_checkpoints(run_dir: str) -> List[int]:
+    """Charge les checkpoints depuis la config d'un run existant."""
+    config_path = os.path.join(run_dir, "config.json")
+    if os.path.exists(config_path):
+        return _load_json(config_path).get("checkpoints", DEFAULT_CHECKPOINTS)
+    return DEFAULT_CHECKPOINTS
+
+
 # ============================================================================
 # TABLEAU RÉCAPITULATIF (terminal + CSV)
 # ============================================================================
@@ -432,13 +303,15 @@ def print_summary_table(all_results: Dict[str, Dict], checkpoints: List[int]):
         checkpoints: Liste de checkpoints
     """
     for env_name, agents in all_results.items():
-        print(f"\n{'═' * 100}")
+        print(f"\n{'═' * 110}")
         print(f"  {env_name.upper()}")
-        print(f"{'═' * 100}")
+        print(f"{'═' * 110}")
 
-        header = f"  {'Agent':<28} {'Checkpoint':>10}  {'Score moyen':>18}  {'Long. moy.':>10}  {'Tps/action':>10}  {'Win %':>6}"
+        header = (f"  {'Agent':<28} {'Checkpoint':>10}  {'Score moyen':>18}  "
+                  f"{'Long. moy.':>10}  {'Tps/action':>10}  "
+                  f"{'Win %':>6}  {'Loss %':>7}  {'Draw %':>7}")
         print(header)
-        print(f"  {'─' * 96}")
+        print(f"  {'─' * 106}")
 
         for agent_name, ckpt_data in agents.items():
             first = True
@@ -452,14 +325,19 @@ def print_summary_table(all_results: Dict[str, Dict], checkpoints: List[int]):
                 length_str = f"{m['mean_length']:.1f}"
                 time_str = f"{m['mean_action_time']:.3f}ms"
                 win_str = f"{m['win_rate']:.0%}"
-                print(f"  {name_col:<28} {ckpt:>10,}  {score_str:>18}  {length_str:>10}  {time_str:>10}  {win_str:>6}")
+                loss_str = f"{m.get('loss_rate', 0):.0%}"
+                draw_str = f"{m.get('draw_rate', 0):.0%}"
+                print(f"  {name_col:<28} {ckpt:>10,}  {score_str:>18}  "
+                      f"{length_str:>10}  {time_str:>10}  "
+                      f"{win_str:>6}  {loss_str:>7}  {draw_str:>7}")
                 first = False
-            print(f"  {'─' * 96}")
+            print(f"  {'─' * 106}")
 
 
 def generate_csv(all_results: Dict[str, Dict], path: str):
     """Exporte les résultats en CSV."""
-    lines = ["env,agent,checkpoint,mean_score,std_score,mean_length,std_length,mean_action_time_ms,win_rate"]
+    lines = ["env,agent,checkpoint,mean_score,std_score,mean_length,std_length,"
+             "mean_action_time_ms,win_rate,loss_rate,draw_rate,training_time_s"]
     for env_name, agents in all_results.items():
         for agent_name, ckpt_data in agents.items():
             for ckpt_str, m in sorted(ckpt_data.items(), key=lambda x: int(x[0])):
@@ -467,7 +345,9 @@ def generate_csv(all_results: Dict[str, Dict], path: str):
                     f"{env_name},{agent_name},{ckpt_str},"
                     f"{m['mean_score']},{m['std_score']},"
                     f"{m['mean_length']},{m['std_length']},"
-                    f"{m['mean_action_time']},{m['win_rate']}"
+                    f"{m['mean_action_time']},{m['win_rate']},"
+                    f"{m.get('loss_rate', '')},{m.get('draw_rate', '')},"
+                    f"{m.get('training_time_s', '')}"
                 )
     with open(path, "w") as f:
         f.write("\n".join(lines) + "\n")
@@ -562,24 +442,26 @@ def _plot_comparison_bars(
         color = COLORS[i % len(COLORS)]
         positions = x + i * bar_width
         bars = ax.bar(positions, values, bar_width, label=agent_name,
-                   color=color, alpha=0.85)
+                   color=color, alpha=0.85, yerr=errors, capsize=3,
+                   error_kw={"elinewidth": 1, "capthick": 1})
 
-        # Annotate each bar with its value
-        for bar_rect, val in zip(bars, values):
-            if val >= 0:
-                y_pos = val + 0.03
-                va = "bottom"
-            else:
-                y_pos = val - 0.03
-                va = "top"
-            ax.text(
-                bar_rect.get_x() + bar_rect.get_width() / 2,
-                y_pos,
-                f"{val:.2f}",
-                ha="center", va=va,
-                fontsize=6.5, fontweight="bold",
-                rotation=0,
-            )
+        # Annotate bars only when few agents (avoid overlap)
+        if n_agents <= 4:
+            for bar_rect, val in zip(bars, values):
+                if val >= 0:
+                    y_pos = bar_rect.get_height() + 0.03
+                    va = "bottom"
+                else:
+                    y_pos = val - 0.03
+                    va = "top"
+                ax.text(
+                    bar_rect.get_x() + bar_rect.get_width() / 2,
+                    y_pos,
+                    f"{val:.2f}",
+                    ha="center", va=va,
+                    fontsize=6.5, fontweight="bold",
+                    rotation=0,
+                )
 
     ax.set_xlabel("Checkpoint (épisodes d'entraînement)")
     ax.set_ylabel(metric_label)
@@ -671,7 +553,7 @@ def _plot_learning_curves(curves: Dict[str, List[float]], env_name: str, path: s
         ax.set_ylim(y_min - margin, y_max + margin)
 
     ax.set_xlabel("Épisode")
-    ax.set_ylabel("Récompense (lissée)")
+    ax.set_ylabel("Récompense (moyenne glissante)")
     ax.set_title(f"{env_name.upper()} — Courbes d'apprentissage")
     ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), borderaxespad=0)
 
@@ -681,17 +563,23 @@ def _plot_learning_curves(curves: Dict[str, List[float]], env_name: str, path: s
 
 
 def _plot_summary_table_image(metrics: Dict, env_name: str, path: str):
-    """Rend le tableau de résultats en image PNG (pour le rapport)."""
+    """Rend le tableau de résultats complet en image PNG (pour le rapport)."""
     agents = list(metrics.keys())
     ckpts = sorted({int(c) for a in metrics.values() for c in a.keys()})
 
     if not agents or not ckpts:
         return
 
-    # Construire les données du tableau
-    col_labels = ["Agent"] + [f"{c:,} ep." for c in ckpts]
-    cell_text = []
+    # Construire les données du tableau — colonnes par checkpoint avec sous-colonnes
+    col_labels = ["Agent"]
+    for c in ckpts:
+        label = f"{c:,}".replace(",", " ")
+        col_labels.append(f"Score\n({label} ep.)")
+        col_labels.append(f"Long.\n({label} ep.)")
+        col_labels.append(f"Tps/act\n({label} ep.)")
+        col_labels.append(f"Win%\n({label} ep.)")
 
+    cell_text = []
     for agent_name in agents:
         row = [agent_name]
         for ckpt in ckpts:
@@ -699,11 +587,15 @@ def _plot_summary_table_image(metrics: Dict, env_name: str, path: str):
             if key in metrics[agent_name]:
                 m = metrics[agent_name][key]
                 row.append(f"{m['mean_score']:+.3f}\n±{m['std_score']:.3f}")
+                row.append(f"{m['mean_length']:.1f}")
+                row.append(f"{m['mean_action_time']:.3f}ms")
+                row.append(f"{m['win_rate']:.0%}")
             else:
-                row.append("—")
+                row.extend(["—", "—", "—", "—"])
         cell_text.append(row)
 
-    fig, ax = plt.subplots(figsize=(max(8, len(ckpts) * 3), max(4, len(agents) * 0.6)))
+    n_cols = len(col_labels)
+    fig, ax = plt.subplots(figsize=(max(10, n_cols * 1.6), max(4, len(agents) * 0.7)))
     ax.axis("off")
 
     table = ax.table(
@@ -713,21 +605,21 @@ def _plot_summary_table_image(metrics: Dict, env_name: str, path: str):
         cellLoc="center",
     )
     table.auto_set_font_size(False)
-    table.set_fontsize(9)
+    table.set_fontsize(8)
     table.scale(1.2, 1.8)
 
     # Style de l'en-tête
-    for j in range(len(col_labels)):
+    for j in range(n_cols):
         table[0, j].set_facecolor("#4472C4")
         table[0, j].set_text_props(color="white", fontweight="bold")
 
     # Alterner les couleurs des lignes
     for i in range(len(agents)):
         color = "#F2F2F2" if i % 2 == 0 else "white"
-        for j in range(len(col_labels)):
+        for j in range(n_cols):
             table[i + 1, j].set_facecolor(color)
 
-    ax.set_title(f"{env_name.upper()} — Score moyen par agent et checkpoint",
+    ax.set_title(f"{env_name.upper()} — Résultats par agent et checkpoint",
                  fontsize=14, fontweight="bold", pad=20)
     fig.tight_layout()
     fig.savefig(path, bbox_inches="tight")
@@ -900,8 +792,8 @@ def reproduce(run_dir: str, agent_filter: Optional[str] = None,
               checkpoints: Optional[List[int]] = None):
     """Charge les modèles sauvegardés et les évalue (reproductibilité).
 
-    Permet au prof de vérifier les résultats sans ré-entraîner.
-    Charge chaque <agent>_ckpt<N>.pt, l'évalue, et affiche le score.
+    Utilise metrics.json pour découvrir les agents et checkpoints disponibles,
+    puis charge chaque <agent>_ckpt<N>.pt, l'évalue, et affiche le score.
     """
     print(f"\n{'═' * 70}")
     print(f"  DeepRL — Reproduction des résultats")
@@ -920,15 +812,14 @@ def reproduce(run_dir: str, agent_filter: Optional[str] = None,
     all_results = {}
 
     for env_name in env_names:
-        models_dir = os.path.join(run_dir, env_name, "models")
-        if not os.path.exists(models_dir):
+        env_dir = os.path.join(run_dir, env_name)
+        metrics_path = os.path.join(env_dir, "metrics.json")
+        models_dir = os.path.join(env_dir, "models")
+
+        if not os.path.exists(metrics_path):
             continue
 
-        # Découvrir les fichiers .pt
-        pt_files = sorted(f for f in os.listdir(models_dir) if f.endswith(".pt"))
-        if not pt_files:
-            continue
-
+        saved_metrics = _load_json(metrics_path)
         registry = AGENT_REGISTRY.get(env_name, {})
         env = make_env(env_name)
 
@@ -938,60 +829,47 @@ def reproduce(run_dir: str, agent_filter: Optional[str] = None,
 
         env_metrics = {}
 
-        for pt_file in pt_files:
-            # Parse : <AgentName>_ckpt<N>.pt
-            base = pt_file.replace(".pt", "")
-            parts = base.rsplit("_ckpt", 1)
-            if len(parts) != 2:
-                # Ancien format <AgentName>.pt (pas de checkpoint)
-                agent_name = base
-                ckpt_str = "final"
-            else:
-                agent_name, ckpt_str = parts[0], parts[1]
-
-            # Filtre par checkpoint
-            if checkpoints and ckpt_str != "final":
-                try:
-                    if int(ckpt_str) not in checkpoints:
-                        continue
-                except ValueError:
-                    pass
-
+        for agent_name, ckpt_data in saved_metrics.items():
             if wanted_agents and agent_name not in wanted_agents:
                 continue
             if agent_name not in registry:
                 print(f"  [SKIP] {agent_name} — pas dans le registre de {env_name}")
                 continue
 
-            # Créer un agent frais et charger les poids
-            try:
-                agent = registry[agent_name]()
-                agent.load(os.path.join(models_dir, pt_file))
-            except Exception as e:
-                print(f"  [ERREUR] {pt_file} : {e}")
-                continue
+            ckpt_keys = sorted(ckpt_data.keys(), key=lambda k: int(k))
+            if checkpoints:
+                ckpt_keys = [k for k in ckpt_keys if int(k) in checkpoints]
 
-            # Évaluer
-            print(f"\n  ── {agent_name} (ckpt {ckpt_str}) ──")
-            metrics = evaluate_agent(env, agent, n_episodes=eval_episodes)
-            _print_metrics(metrics)
+            for ckpt_str in ckpt_keys:
+                model_path = os.path.join(models_dir, f"{agent_name}_ckpt{ckpt_str}.pt")
+                if not os.path.exists(model_path):
+                    # Agent sans entraînement (Random…) — évaluer directement
+                    if agent_name in NO_TRAINING_AGENTS:
+                        agent = registry[agent_name]()
+                    else:
+                        print(f"  [SKIP] {agent_name} ckpt {ckpt_str} — modèle introuvable")
+                        continue
+                else:
+                    try:
+                        agent = registry[agent_name]()
+                        agent.load(model_path)
+                    except Exception as e:
+                        print(f"  [ERREUR] {agent_name} ckpt {ckpt_str} : {e}")
+                        continue
 
-            if agent_name not in env_metrics:
-                env_metrics[agent_name] = {}
-            env_metrics[agent_name][ckpt_str] = metrics
+                print(f"\n  ── {agent_name} (ckpt {ckpt_str}) ──")
+                metrics = evaluate_agent(env, agent, n_episodes=eval_episodes)
+                _print_metrics(metrics)
+
+                if agent_name not in env_metrics:
+                    env_metrics[agent_name] = {}
+                env_metrics[agent_name][ckpt_str] = metrics
 
         if env_metrics:
             all_results[env_name] = env_metrics
 
-    # Tableau récapitulatif
     if all_results:
-        # Récupérer les checkpoints depuis la config
-        config_path = os.path.join(run_dir, "config.json")
-        if os.path.exists(config_path):
-            config = _load_json(config_path)
-            ckpts = config.get("checkpoints", DEFAULT_CHECKPOINTS)
-        else:
-            ckpts = DEFAULT_CHECKPOINTS
+        ckpts = _load_run_checkpoints(run_dir)
         print_summary_table(all_results, ckpts)
 
     print(f"\n{'═' * 70}")
@@ -1048,13 +926,7 @@ def replot(run_dir: str, agent_filter: Optional[str] = None,
         print(f"    {env_name} : {len(metrics)} agents")
 
     if all_results:
-        # Trouver les checkpoints depuis la config
-        config_path = os.path.join(run_dir, "config.json")
-        if os.path.exists(config_path):
-            config = _load_json(config_path)
-            ckpts = config.get("checkpoints", DEFAULT_CHECKPOINTS)
-        else:
-            ckpts = DEFAULT_CHECKPOINTS
+        ckpts = _load_run_checkpoints(run_dir)
         print_summary_table(all_results, ckpts)
 
     print(f"\n  Plots re-générés !")

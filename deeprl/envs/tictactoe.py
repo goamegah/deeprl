@@ -113,8 +113,7 @@ class TicTacToe(Environment):
         self._current_player = self.PLAYER_X
         self._winner = None
         self._done = False
-        self._state = self._get_state()
-        return self._state.copy()
+        return self.get_state()
     
     def step(self, action: int) -> Tuple[np.ndarray, float, bool]:
         """
@@ -156,8 +155,7 @@ class TicTacToe(Environment):
             # Partie continue, changer de joueur
             self._current_player = 1 - self._current_player
         
-        self._state = self._get_state()
-        return self._state.copy(), reward, self._done
+        return self.get_state(), reward, self._done
     
     def _check_winner(self, value: int) -> bool:
         """Vérifie si le joueur avec cette valeur a gagné."""
@@ -172,7 +170,7 @@ class TicTacToe(Environment):
             return []
         return [i for i in range(9) if self._board[i] == self.EMPTY]
     
-    def _get_state(self) -> np.ndarray:
+    def get_state(self) -> np.ndarray:
         """
         État one-hot: 3 canaux par case.
         
@@ -293,6 +291,50 @@ class TicTacToe(Environment):
                 symmetries.append((new_state, new_action))
         
         return symmetries
+    
+    def clone(self) -> "TicTacToe":
+        """Clone l'environnement."""
+        env = TicTacToe()
+        env._board = self._board.copy()
+        env._current_player = self._current_player
+        env._winner = self._winner
+        env._done = self._done
+        return env
+    
+    def determinize(self, obs: np.ndarray) -> "TicTacToe":
+        """
+        Reconstruit un TicTacToe jouable à partir d'une observation (27D).
+        
+        Décode le plateau (9 cases × 3 canaux one-hot) et déduit
+        le joueur courant à partir du nombre de coups joués.
+        """
+        env = TicTacToe()
+        
+        # Décoder le plateau one-hot: [vide, X, O] par case
+        for i in range(9):
+            ch = obs[i * 3 : i * 3 + 3]
+            if ch[1] > 0.5:
+                env._board[i] = self.X_VAL
+            elif ch[2] > 0.5:
+                env._board[i] = self.O_VAL
+        
+        # Joueur courant : X si autant de X que de O, sinon O
+        x_count = int(np.sum(env._board == self.X_VAL))
+        o_count = int(np.sum(env._board == self.O_VAL))
+        env._current_player = self.PLAYER_X if x_count == o_count else self.PLAYER_O
+        
+        # Vérifier fin de partie
+        env._done = False
+        env._winner = None
+        for val, player in [(self.X_VAL, self.PLAYER_X), (self.O_VAL, self.PLAYER_O)]:
+            if env._check_winner(val):
+                env._done = True
+                env._winner = player
+                break
+        if not env._done and len(env.get_available_actions()) == 0:
+            env._done = True
+        
+        return env
     
     def __repr__(self) -> str:
         return f"TicTacToe(player={self._current_player}, done={self._done})"

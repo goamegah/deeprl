@@ -19,6 +19,10 @@ from deeprl.envs import (
     Quarto, QuartoVsRandom
 )
 from deeprl.agents import (
-    Agent, RandomAgent, HumanAgent, TabularQLearning
+    Agent, RandomAgent, HumanAgent, TabularQLearning,
+    DeepQLearning, DoubleDeepQLearning,
+    DDQNWithExperienceReplay, DDQNWithPrioritizedExperienceReplay,
 )
+from deeprl.networks import MLP
+from deeprl.memory import ReplayBuffer, PrioritizedReplayBuffer
 from deeprl.training import Trainer, Evaluator

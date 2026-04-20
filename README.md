@@ -95,7 +95,3 @@ deeprl/
 ## Licence
 
 MIT
-
-## Licence
-
-MIT
