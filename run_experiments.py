@@ -7,7 +7,7 @@ sauvegarde métriques (JSON), modèles (.pt) et génère les graphiques (PNG).
 Aucun service externe (pas de wandb, pas de tensorboard).
 
 Métriques mesurées (conformément aux consignes du projet) :
-  - Score moyen (sur 100 épisodes d'évaluation)
+    - Score moyen (sur 1000 épisodes d'évaluation par défaut)
   - Longueur moyenne des épisodes
   - Temps moyen par action (ms)
   - Taux de victoire (pour les jeux à 2 joueurs)
@@ -57,7 +57,7 @@ from deeprl.registry import (
 # ============================================================================
 
 DEFAULT_CHECKPOINTS = [1_000, 10_000, 100_000, 1_000_000]
-EVAL_EPISODES = 100
+EVAL_EPISODES = 1000
 MAX_STEPS = 200
 
 
@@ -535,11 +535,25 @@ def _plot_learning_curves(curves: Dict[str, List[float]], env_name: str, path: s
         std = _rolling_std(rewards, window)
         color = COLORS[i % len(COLORS)]
 
-        ax.plot(episodes, smoothed, label=agent_name, color=color, alpha=0.9)
+        # Éviter les artefacts visuels de bord: on affiche la zone centrale
+        # où la fenêtre glissante est complète.
+        edge = window // 2
+        if len(rewards) > 2 * edge:
+            plot_slice = slice(edge, len(rewards) - edge)
+        else:
+            plot_slice = slice(0, len(rewards))
+
+        episodes_plot = episodes[plot_slice]
+        smoothed_plot = smoothed[plot_slice]
+        std_plot = std[plot_slice]
+
+        ax.plot(episodes_plot, smoothed_plot, label=agent_name, color=color, alpha=0.9)
         # Zone claire autour (±0.5 std) — narrower band for readability
-        ax.fill_between(episodes, smoothed - 0.5 * std, smoothed + 0.5 * std,
+        ax.fill_between(episodes_plot,
+                        smoothed_plot - 0.5 * std_plot,
+                        smoothed_plot + 0.5 * std_plot,
                          color=color, alpha=0.12)
-        all_smoothed.extend(smoothed)
+        all_smoothed.extend(smoothed_plot)
 
     if not has_data:
         plt.close(fig)
@@ -627,29 +641,39 @@ def _plot_summary_table_image(metrics: Dict, env_name: str, path: str):
 
 
 def _rolling_mean(data: list, window: int) -> np.ndarray:
-    """Moyenne glissante."""
+    """Moyenne glissante centrée sans artefact de bord.
+
+    Utilise un dénominateur variable aux extrémités (min_periods=1)
+    pour éviter les pics artificiels dus au edge-padding.
+    """
     arr = np.array(data, dtype=float)
-    if len(arr) < window:
+    if len(arr) == 0:
         return arr
-    kernel = np.ones(window) / window
-    padded = np.pad(arr, (window // 2, window - 1 - window // 2), mode="edge")
-    return np.convolve(padded, kernel, mode="valid")
+    window = max(1, int(window))
+    kernel = np.ones(window, dtype=float)
+    sums = np.convolve(arr, kernel, mode="same")
+    counts = np.convolve(np.ones_like(arr), kernel, mode="same")
+    return sums / np.maximum(counts, 1.0)
 
 
 def _rolling_std(data: list, window: int) -> np.ndarray:
-    """Écart-type glissant (même fenêtre et padding que _rolling_mean)."""
+    """Écart-type glissant centré sans edge-padding.
+
+    Variance calculée via convolution des sommes et sommes de carrés,
+    avec correction du nombre d'échantillons effectif aux bords.
+    """
     arr = np.array(data, dtype=float)
-    if len(arr) < window:
+    if len(arr) == 0:
         return np.zeros_like(arr)
-    # Edge-pad identically to _rolling_mean for consistency
-    padded = np.pad(arr, (window // 2, window - 1 - window // 2), mode="edge")
-    # Vectorised rolling std via cumulative sums (prepend 0 for correct length)
-    cum = np.concatenate(([0.0], np.cumsum(padded)))
-    cum2 = np.concatenate(([0.0], np.cumsum(padded ** 2)))
-    s = cum[window:] - cum[:-window]
-    s2 = cum2[window:] - cum2[:-window]
-    variance = s2 / window - (s / window) ** 2
-    # Clamp numerical noise to zero before sqrt
+    window = max(1, int(window))
+    kernel = np.ones(window, dtype=float)
+
+    sums = np.convolve(arr, kernel, mode="same")
+    sums2 = np.convolve(arr * arr, kernel, mode="same")
+    counts = np.convolve(np.ones_like(arr), kernel, mode="same")
+
+    means = sums / np.maximum(counts, 1.0)
+    variance = sums2 / np.maximum(counts, 1.0) - means * means
     variance = np.maximum(variance, 0.0)
     return np.sqrt(variance)
 

@@ -28,12 +28,12 @@ from deeprl.agents import (
 
 AGENT_REGISTRY = {
     "lineworld": {
-        "Random":              lambda: RandomAgent(state_dim=7, n_actions=2),
-        "TabularQLearning":    lambda: TabularQLearning(n_states=7, n_actions=2, lr=0.1, gamma=0.99),
-        "DeepQLearning":       lambda: DeepQLearning(state_dim=7, n_actions=2, hidden_dims=[32]),
-        "DoubleDeepQLearning": lambda: DoubleDeepQLearning(state_dim=7, n_actions=2, hidden_dims=[32], target_update_freq=50),
-        "DDQN_ER":             lambda: DDQNWithExperienceReplay(state_dim=7, n_actions=2, hidden_dims=[32], target_update_freq=50, buffer_size=5000),
-        "DDQN_PER":            lambda: DDQNWithPrioritizedExperienceReplay(state_dim=7, n_actions=2, hidden_dims=[32], target_update_freq=50, buffer_size=5000),
+        "Random":              lambda: RandomAgent(state_dim=5, n_actions=2),
+        "TabularQLearning":    lambda: TabularQLearning(n_states=5, n_actions=2, lr=0.1, gamma=0.99),
+        "DeepQLearning":       lambda: DeepQLearning(state_dim=5, n_actions=2, hidden_dims=[32]),
+        "DoubleDeepQLearning": lambda: DoubleDeepQLearning(state_dim=5, n_actions=2, hidden_dims=[32], target_update_freq=50),
+        "DDQN_ER":             lambda: DDQNWithExperienceReplay(state_dim=5, n_actions=2, hidden_dims=[32], target_update_freq=50, buffer_size=5000),
+        "DDQN_PER":            lambda: DDQNWithPrioritizedExperienceReplay(state_dim=5, n_actions=2, hidden_dims=[32], target_update_freq=50, buffer_size=5000),
     },
     "gridworld": {
         "Random":              lambda: RandomAgent(state_dim=25, n_actions=4),
@@ -94,7 +94,7 @@ DEFAULT_FPS = {
 def make_env(env_name: str):
     """Cree l'environnement d'entrainement / evaluation (1 joueur ou VsRandom)."""
     if env_name == "lineworld":
-        return LineWorld(size=7)
+        return LineWorld(size=5)
     elif env_name == "gridworld":
         return GridWorld.create_simple(size=5)
     elif env_name == "tictactoe":

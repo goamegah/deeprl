@@ -128,7 +128,7 @@ class Evaluator:
     
     Exemple d'utilisation:
         >>> evaluator = Evaluator(env, agent)
-        >>> results = evaluator.evaluate(n_episodes=100)
+        >>> results = evaluator.evaluate(n_episodes=1000)
         >>> print(results.get_summary())
     """
     
@@ -152,7 +152,7 @@ class Evaluator:
     
     def evaluate(
         self,
-        n_episodes: int = 100,
+        n_episodes: int = 1000,
         max_steps_per_episode: int = 1000,
         render: bool = False
     ) -> EvaluationResults:
