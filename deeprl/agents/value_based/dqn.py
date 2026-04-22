@@ -457,15 +457,22 @@ class DDQNWithExperienceReplay(DoubleDeepQLearning):
         1. Stocke la transition dans le buffer
         2. Si assez de transitions : echantillonne un batch et MAJ
         """
-        # Stocker
-        self.buffer.push(state, action, reward, next_state, float(done))
+        # Encoder les actions valides du next_state comme masque booleen
+        available_next = kwargs.get("available_actions_next")
+        if available_next is not None:
+            next_mask = np.zeros(self.n_actions, dtype=bool)
+            next_mask[list(available_next)] = True
+        else:
+            next_mask = None
+
+        self.buffer.push(state, action, reward, next_state, float(done), next_mask)
 
         # Attendre que le buffer soit assez rempli
         if len(self.buffer) < self.min_buffer_size:
             return None
 
         # Echantillonner un mini-batch
-        states, actions_b, rewards_b, next_states, dones_b = self.buffer.sample(
+        states, actions_b, rewards_b, next_states, dones_b, next_masks = self.buffer.sample(
             self.batch_size
         )
 
@@ -484,6 +491,12 @@ class DDQNWithExperienceReplay(DoubleDeepQLearning):
         with torch.no_grad():
             # Selection par reseau en ligne
             next_q_online = self.q_net(next_states_t)
+
+            # Masquer les actions invalides si l'info est disponible
+            if next_masks is not None:
+                invalid_t = torch.tensor(~next_masks, dtype=torch.bool, device=self.device)
+                next_q_online = next_q_online.masked_fill(invalid_t, float("-inf"))
+
             best_actions = next_q_online.argmax(dim=1)
 
             # Evaluation par reseau cible
@@ -614,8 +627,15 @@ class DDQNWithPrioritizedExperienceReplay(DoubleDeepQLearning):
         3. MAJ avec poids IS
         4. Met a jour les priorites avec les nouveaux TD-errors
         """
-        # Stocker
-        self.buffer.push(state, action, reward, next_state, float(done))
+        # Encoder les actions valides du next_state comme masque booleen
+        available_next = kwargs.get("available_actions_next")
+        if available_next is not None:
+            next_mask = np.zeros(self.n_actions, dtype=bool)
+            next_mask[list(available_next)] = True
+        else:
+            next_mask = None
+
+        self.buffer.push(state, action, reward, next_state, float(done), next_mask)
 
         if len(self.buffer) < self.min_buffer_size:
             return None
@@ -627,7 +647,7 @@ class DDQNWithPrioritizedExperienceReplay(DoubleDeepQLearning):
         # Echantillonner avec priorites
         (
             states, actions_b, rewards_b, next_states, dones_b,
-            indices, is_weights,
+            indices, is_weights, next_masks,
         ) = self.buffer.sample(self.batch_size, self.beta)
 
         states_t = torch.FloatTensor(states).to(self.device)
@@ -645,6 +665,12 @@ class DDQNWithPrioritizedExperienceReplay(DoubleDeepQLearning):
         # Double Q-Learning targets
         with torch.no_grad():
             next_q_online = self.q_net(next_states_t)
+
+            # Masquer les actions invalides si l'info est disponible
+            if next_masks is not None:
+                invalid_t = torch.tensor(~next_masks, dtype=torch.bool, device=self.device)
+                next_q_online = next_q_online.masked_fill(invalid_t, float("-inf"))
+
             best_actions = next_q_online.argmax(dim=1)
 
             next_q_target = self.target_net(next_states_t)

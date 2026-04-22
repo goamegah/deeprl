@@ -63,9 +63,15 @@ class ReplayBuffer:
         reward: float,
         next_state: np.ndarray,
         done: float,
+        next_mask: np.ndarray = None,
     ):
-        """Ajoute une transition au buffer."""
-        transition = (state, action, reward, next_state, done)
+        """Ajoute une transition au buffer.
+
+        Args:
+            next_mask: Masque booleen des actions valides dans next_state,
+                       shape (n_actions,). None = pas de masquage.
+        """
+        transition = (state, action, reward, next_state, done, next_mask)
 
         if len(self.buffer) < self.capacity:
             self.buffer.append(transition)
@@ -76,7 +82,7 @@ class ReplayBuffer:
 
     def sample(
         self, batch_size: int
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, object]:
         """
         Echantillonne un mini-batch uniformement.
 
@@ -84,22 +90,34 @@ class ReplayBuffer:
             batch_size: Taille du batch
 
         Returns:
-            (states, actions, rewards, next_states, dones)
-            Chaque element est un numpy array de taille (batch_size, ...).
+            (states, actions, rewards, next_states, dones, next_masks)
+            next_masks est None si aucun masque n'a ete stocke,
+            sinon un array (batch_size, n_actions).
         """
         indices = np.random.choice(
             len(self.buffer), size=batch_size,
             replace=(len(self.buffer) < batch_size)
         )
 
-        states, actions, rewards, next_states, dones = [], [], [], [], []
+        states, actions, rewards, next_states, dones, masks = [], [], [], [], [], []
+        has_masks = False
         for idx in indices:
-            s, a, r, ns, d = self.buffer[idx]
+            s, a, r, ns, d, m = self.buffer[idx]
             states.append(s)
             actions.append(a)
             rewards.append(r)
             next_states.append(ns)
             dones.append(d)
+            masks.append(m)
+            if m is not None:
+                has_masks = True
+
+        next_masks = np.array(masks, dtype=object) if has_masks else None
+        if has_masks:
+            next_masks = np.stack([
+                m if m is not None else np.ones(masks[0].shape, dtype=bool)
+                for m in masks
+            ])
 
         return (
             np.array(states, dtype=np.float32),
@@ -107,6 +125,7 @@ class ReplayBuffer:
             np.array(rewards, dtype=np.float32),
             np.array(next_states, dtype=np.float32),
             np.array(dones, dtype=np.float32),
+            next_masks,
         )
 
     def __len__(self) -> int:
@@ -249,15 +268,20 @@ class PrioritizedReplayBuffer:
         reward: float,
         next_state: np.ndarray,
         done: float,
+        next_mask: np.ndarray = None,
     ):
         """
         Ajoute une transition avec la priorite maximale.
 
         Les nouvelles transitions recoivent la priorite maximale pour
         garantir qu'elles soient echantillonnees au moins une fois.
+
+        Args:
+            next_mask: Masque booleen des actions valides dans next_state,
+                       shape (n_actions,). None = pas de masquage.
         """
         priority = self.max_priority ** self.alpha
-        self.tree.add(priority, (state, action, reward, next_state, done))
+        self.tree.add(priority, (state, action, reward, next_state, done, next_mask))
 
     def sample(
         self, batch_size: int, beta: float = 0.4
@@ -309,13 +333,21 @@ class PrioritizedReplayBuffer:
                     indices.append(tree_idx)
                     priorities.append(max(priority, self.epsilon))
 
-        states, actions, rewards, next_states, dones = zip(*batch)
+        states, actions, rewards, next_states, dones, masks = zip(*batch)
 
         # Importance Sampling weights : w_i = (N * P(i))^{-beta}
         priorities_arr = np.array(priorities, dtype=np.float64)
         probs = priorities_arr / total
         weights = (self.tree.size * probs) ** (-beta)
         weights = weights / weights.max()  # Normaliser
+
+        has_masks = any(m is not None for m in masks)
+        next_masks = None
+        if has_masks:
+            next_masks = np.stack([
+                m if m is not None else np.ones(next(m2 for m2 in masks if m2 is not None).shape, dtype=bool)
+                for m in masks
+            ])
 
         return (
             np.array(states, dtype=np.float32),
@@ -325,6 +357,7 @@ class PrioritizedReplayBuffer:
             np.array(dones, dtype=np.float32),
             np.array(indices, dtype=np.int64),
             np.array(weights, dtype=np.float32),
+            next_masks,
         )
 
     def update_priorities(self, indices: np.ndarray, td_errors: np.ndarray):
@@ -335,10 +368,14 @@ class PrioritizedReplayBuffer:
             indices: Indices dans le SumTree (retournes par sample)
             td_errors: TD-errors absolus pour chaque transition
         """
+        batch_max = 0.0
         for idx, td_error in zip(indices, td_errors):
             priority = (abs(td_error) + self.epsilon) ** self.alpha
-            self.max_priority = max(self.max_priority, priority)
+            batch_max = max(batch_max, priority)
             self.tree.update(int(idx), priority)
+        # Decay lent vers le max du batch courant pour eviter que max_priority
+        # reste bloque sur un pic historique apres convergence.
+        self.max_priority = max(batch_max, self.max_priority * 0.9999)
 
     def __len__(self) -> int:
         return self.tree.size
