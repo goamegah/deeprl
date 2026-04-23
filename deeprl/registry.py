@@ -19,6 +19,7 @@ from deeprl.agents import (
     RandomAgent, TabularQLearning,
     DeepQLearning, DoubleDeepQLearning,
     DDQNWithExperienceReplay, DDQNWithPrioritizedExperienceReplay,
+    REINFORCE, REINFORCEWithBaseline, REINFORCEWithCritic, PPO,
 )
 
 
@@ -34,6 +35,10 @@ AGENT_REGISTRY = {
         "DoubleDeepQLearning": lambda: DoubleDeepQLearning(state_dim=5, n_actions=2, hidden_dims=[32], target_update_freq=50),
         "DDQN_ER":             lambda: DDQNWithExperienceReplay(state_dim=5, n_actions=2, hidden_dims=[32], target_update_freq=50, buffer_size=5000),
         "DDQN_PER":            lambda: DDQNWithPrioritizedExperienceReplay(state_dim=5, n_actions=2, hidden_dims=[32], target_update_freq=50, buffer_size=5000),
+        "REINFORCE":           lambda: REINFORCE(state_dim=5, n_actions=2, hidden_dims=[32], lr=5e-3),
+        "REINFORCE_Baseline":  lambda: REINFORCEWithBaseline(state_dim=5, n_actions=2, hidden_dims=[32], lr=5e-3),
+        "REINFORCE_Critic":    lambda: REINFORCEWithCritic(state_dim=5, n_actions=2, hidden_dims=[32], lr_actor=5e-3, lr_critic=5e-3),
+        "PPO":                 lambda: PPO(state_dim=5, n_actions=2, hidden_dims=[32], lr_actor=3e-4, lr_critic=1e-3),
     },
     "gridworld": {
         "Random":              lambda: RandomAgent(state_dim=25, n_actions=4),
@@ -42,6 +47,10 @@ AGENT_REGISTRY = {
         "DoubleDeepQLearning": lambda: DoubleDeepQLearning(state_dim=25, n_actions=4, hidden_dims=[64, 32], target_update_freq=100),
         "DDQN_ER":             lambda: DDQNWithExperienceReplay(state_dim=25, n_actions=4, hidden_dims=[64, 32], target_update_freq=100, buffer_size=10000),
         "DDQN_PER":            lambda: DDQNWithPrioritizedExperienceReplay(state_dim=25, n_actions=4, hidden_dims=[64, 32], target_update_freq=100, buffer_size=10000),
+        "REINFORCE":           lambda: REINFORCE(state_dim=25, n_actions=4, hidden_dims=[64, 32], lr=3e-3),
+        "REINFORCE_Baseline":  lambda: REINFORCEWithBaseline(state_dim=25, n_actions=4, hidden_dims=[64, 32], lr=3e-3),
+        "REINFORCE_Critic":    lambda: REINFORCEWithCritic(state_dim=25, n_actions=4, hidden_dims=[64, 32], lr_actor=3e-3, lr_critic=3e-3),
+        "PPO":                 lambda: PPO(state_dim=25, n_actions=4, hidden_dims=[64, 32], lr_actor=3e-4, lr_critic=1e-3),
     },
     "tictactoe": {
         "Random":              lambda: RandomAgent(state_dim=27, n_actions=9),
@@ -49,6 +58,10 @@ AGENT_REGISTRY = {
         "DoubleDeepQLearning": lambda: DoubleDeepQLearning(state_dim=27, n_actions=9, hidden_dims=[128, 64], lr=5e-4, epsilon_decay=0.9995, target_update_freq=200),
         "DDQN_ER":             lambda: DDQNWithExperienceReplay(state_dim=27, n_actions=9, hidden_dims=[128, 64], lr=5e-4, epsilon_decay=0.9995, target_update_freq=200, buffer_size=20000),
         "DDQN_PER":            lambda: DDQNWithPrioritizedExperienceReplay(state_dim=27, n_actions=9, hidden_dims=[128, 64], lr=5e-4, epsilon_decay=0.9995, target_update_freq=200, buffer_size=20000),
+        "REINFORCE":           lambda: REINFORCE(state_dim=27, n_actions=9, hidden_dims=[128, 64], lr=3e-4),
+        "REINFORCE_Baseline":  lambda: REINFORCEWithBaseline(state_dim=27, n_actions=9, hidden_dims=[128, 64], lr=3e-4),
+        "REINFORCE_Critic":    lambda: REINFORCEWithCritic(state_dim=27, n_actions=9, hidden_dims=[128, 64], lr_actor=3e-4, lr_critic=3e-4),
+        "PPO":                 lambda: PPO(state_dim=27, n_actions=9, hidden_dims=[128, 64], lr_actor=3e-4, lr_critic=1e-3),
     },
     "quarto": {
         "Random":              lambda: RandomAgent(state_dim=114, n_actions=32),
@@ -56,6 +69,10 @@ AGENT_REGISTRY = {
         "DoubleDeepQLearning": lambda: DoubleDeepQLearning(state_dim=114, n_actions=32, hidden_dims=[256, 128], lr=3e-4, epsilon_decay=0.9999, target_update_freq=500),
         "DDQN_ER":             lambda: DDQNWithExperienceReplay(state_dim=114, n_actions=32, hidden_dims=[256, 128], lr=3e-4, epsilon_decay=0.9999, target_update_freq=500, buffer_size=50000),
         "DDQN_PER":            lambda: DDQNWithPrioritizedExperienceReplay(state_dim=114, n_actions=32, hidden_dims=[256, 128], lr=3e-4, epsilon_decay=0.9999, target_update_freq=500, buffer_size=50000),
+        "REINFORCE":           lambda: REINFORCE(state_dim=114, n_actions=32, hidden_dims=[256, 128], lr=1e-4),
+        "REINFORCE_Baseline":  lambda: REINFORCEWithBaseline(state_dim=114, n_actions=32, hidden_dims=[256, 128], lr=1e-4),
+        "REINFORCE_Critic":    lambda: REINFORCEWithCritic(state_dim=114, n_actions=32, hidden_dims=[256, 128], lr_actor=1e-4, lr_critic=3e-4),
+        "PPO":                 lambda: PPO(state_dim=114, n_actions=32, hidden_dims=[256, 128], lr_actor=3e-4, lr_critic=1e-3),
     },
 }
 
