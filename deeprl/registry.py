@@ -27,35 +27,156 @@ from deeprl.agents import (
 # ============================================================================
 
 AGENT_REGISTRY = {
+    # -----------------------------------------------------------------------
+    # LINEWORLD — 5 états, 2 actions (gauche / droite)
+    # Épisodes courts (~2 steps) → epsilon_decay rapide, buffer petit
+    # -----------------------------------------------------------------------
     "lineworld": {
-        "Random":              lambda: RandomAgent(state_dim=5, n_actions=2),
-        "TabularQLearning":    lambda: TabularQLearning(n_states=5, n_actions=2, lr=0.1, gamma=0.99),
-        "DeepQLearning":       lambda: DeepQLearning(state_dim=5, n_actions=2, hidden_dims=[32]),
-        "DoubleDeepQLearning": lambda: DoubleDeepQLearning(state_dim=5, n_actions=2, hidden_dims=[32], target_update_freq=50),
-        "DDQN_ER":             lambda: DDQNWithExperienceReplay(state_dim=5, n_actions=2, hidden_dims=[32], target_update_freq=50, buffer_size=5000),
-        "DDQN_PER":            lambda: DDQNWithPrioritizedExperienceReplay(state_dim=5, n_actions=2, hidden_dims=[32], target_update_freq=50, buffer_size=5000),
+        "Random": lambda: RandomAgent(
+            state_dim=5, n_actions=2,
+        ),
+        "TabularQLearning": lambda: TabularQLearning(
+            n_states=5, n_actions=2,
+            lr=0.1, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.995,
+        ),
+        "DeepQLearning": lambda: DeepQLearning(
+            state_dim=5, n_actions=2, hidden_dims=[32],
+            lr=1e-3, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.995,
+        ),
+        "DoubleDeepQLearning": lambda: DoubleDeepQLearning(
+            state_dim=5, n_actions=2, hidden_dims=[32],
+            lr=1e-3, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.995,
+            target_update_freq=50,
+        ),
+        "DDQN_ER": lambda: DDQNWithExperienceReplay(
+            state_dim=5, n_actions=2, hidden_dims=[32],
+            lr=1e-3, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.995,
+            target_update_freq=50,
+            buffer_size=5_000, batch_size=32, min_buffer_size=500,
+        ),
+        "DDQN_PER": lambda: DDQNWithPrioritizedExperienceReplay(
+            state_dim=5, n_actions=2, hidden_dims=[32],
+            lr=1e-3, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.995,
+            target_update_freq=50,
+            buffer_size=5_000, batch_size=32, min_buffer_size=500,
+            alpha=0.6, beta_start=0.4, beta_end=1.0, beta_frames=500_000,
+        ),
     },
+    # -----------------------------------------------------------------------
+    # GRIDWORLD — 25 états, 4 actions, grille 5×5
+    # Épisodes moyens (~20 steps) → buffers médiums
+    # -----------------------------------------------------------------------
     "gridworld": {
-        "Random":              lambda: RandomAgent(state_dim=25, n_actions=4),
-        "TabularQLearning":    lambda: TabularQLearning(n_states=25, n_actions=4, lr=0.1, gamma=0.99),
-        "DeepQLearning":       lambda: DeepQLearning(state_dim=25, n_actions=4, hidden_dims=[64, 32]),
-        "DoubleDeepQLearning": lambda: DoubleDeepQLearning(state_dim=25, n_actions=4, hidden_dims=[64, 32], target_update_freq=100),
-        "DDQN_ER":             lambda: DDQNWithExperienceReplay(state_dim=25, n_actions=4, hidden_dims=[64, 32], target_update_freq=100, buffer_size=10000),
-        "DDQN_PER":            lambda: DDQNWithPrioritizedExperienceReplay(state_dim=25, n_actions=4, hidden_dims=[64, 32], target_update_freq=100, buffer_size=10000),
+        "Random": lambda: RandomAgent(
+            state_dim=25, n_actions=4,
+        ),
+        "TabularQLearning": lambda: TabularQLearning(
+            n_states=25, n_actions=4,
+            lr=0.1, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.995,
+        ),
+        "DeepQLearning": lambda: DeepQLearning(
+            state_dim=25, n_actions=4, hidden_dims=[64, 32],
+            lr=1e-3, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.995,
+        ),
+        "DoubleDeepQLearning": lambda: DoubleDeepQLearning(
+            state_dim=25, n_actions=4, hidden_dims=[64, 32],
+            lr=1e-3, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.995,
+            target_update_freq=100,
+        ),
+        "DDQN_ER": lambda: DDQNWithExperienceReplay(
+            state_dim=25, n_actions=4, hidden_dims=[64, 32],
+            lr=1e-3, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.995,
+            target_update_freq=100,
+            buffer_size=10_000, batch_size=32, min_buffer_size=1_000,
+        ),
+        "DDQN_PER": lambda: DDQNWithPrioritizedExperienceReplay(
+            state_dim=25, n_actions=4, hidden_dims=[64, 32],
+            lr=1e-3, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.995,
+            target_update_freq=100,
+            buffer_size=10_000, batch_size=32, min_buffer_size=1_000,
+            alpha=0.6, beta_start=0.4, beta_end=1.0, beta_frames=2_000_000,
+        ),
     },
+    # -----------------------------------------------------------------------
+    # TICTACTOE — 27 dims, 9 actions, épisodes ~5-9 steps
+    # epsilon_decay lent (0.9995) → exploration sur ~9K épisodes
+    # -----------------------------------------------------------------------
     "tictactoe": {
-        "Random":              lambda: RandomAgent(state_dim=27, n_actions=9),
-        "DeepQLearning":       lambda: DeepQLearning(state_dim=27, n_actions=9, hidden_dims=[128, 64], lr=5e-4, epsilon_decay=0.9995),
-        "DoubleDeepQLearning": lambda: DoubleDeepQLearning(state_dim=27, n_actions=9, hidden_dims=[128, 64], lr=5e-4, epsilon_decay=0.9995, target_update_freq=200),
-        "DDQN_ER":             lambda: DDQNWithExperienceReplay(state_dim=27, n_actions=9, hidden_dims=[128, 64], lr=5e-4, epsilon_decay=0.9995, target_update_freq=200, buffer_size=20000),
-        "DDQN_PER":            lambda: DDQNWithPrioritizedExperienceReplay(state_dim=27, n_actions=9, hidden_dims=[128, 64], lr=5e-4, epsilon_decay=0.9995, target_update_freq=200, buffer_size=20000),
+        "Random": lambda: RandomAgent(
+            state_dim=27, n_actions=9,
+        ),
+        "DeepQLearning": lambda: DeepQLearning(
+            state_dim=27, n_actions=9, hidden_dims=[128, 64],
+            lr=5e-4, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9995,
+        ),
+        "DoubleDeepQLearning": lambda: DoubleDeepQLearning(
+            state_dim=27, n_actions=9, hidden_dims=[128, 64],
+            lr=5e-4, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9995,
+            target_update_freq=200,
+        ),
+        "DDQN_ER": lambda: DDQNWithExperienceReplay(
+            state_dim=27, n_actions=9, hidden_dims=[128, 64],
+            lr=5e-4, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9995,
+            target_update_freq=200,
+            buffer_size=20_000, batch_size=32, min_buffer_size=1_000,
+        ),
+        "DDQN_PER": lambda: DDQNWithPrioritizedExperienceReplay(
+            state_dim=27, n_actions=9, hidden_dims=[128, 64],
+            lr=5e-4, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9995,
+            target_update_freq=200,
+            buffer_size=20_000, batch_size=32, min_buffer_size=1_000,
+            alpha=0.6, beta_start=0.4, beta_end=1.0, beta_frames=700_000,
+        ),
     },
+    # -----------------------------------------------------------------------
+    # QUARTO — 114 dims, 32 actions, épisodes ~10-16 steps
+    # epsilon_decay très lent (0.9999) → exploration sur ~46K épisodes
+    # min_buffer_size = 10% du buffer pour diversité suffisante au démarrage
+    # -----------------------------------------------------------------------
     "quarto": {
-        "Random":              lambda: RandomAgent(state_dim=114, n_actions=32),
-        "DeepQLearning":       lambda: DeepQLearning(state_dim=114, n_actions=32, hidden_dims=[256, 128], lr=3e-4, epsilon_decay=0.9999),
-        "DoubleDeepQLearning": lambda: DoubleDeepQLearning(state_dim=114, n_actions=32, hidden_dims=[256, 128], lr=3e-4, epsilon_decay=0.9999, target_update_freq=500),
-        "DDQN_ER":             lambda: DDQNWithExperienceReplay(state_dim=114, n_actions=32, hidden_dims=[256, 128], lr=3e-4, epsilon_decay=0.9999, target_update_freq=500, buffer_size=50000),
-        "DDQN_PER":            lambda: DDQNWithPrioritizedExperienceReplay(state_dim=114, n_actions=32, hidden_dims=[256, 128], lr=3e-4, epsilon_decay=0.9999, target_update_freq=500, buffer_size=50000),
+        "Random": lambda: RandomAgent(
+            state_dim=114, n_actions=32,
+        ),
+        "DeepQLearning": lambda: DeepQLearning(
+            state_dim=114, n_actions=32, hidden_dims=[256, 128],
+            lr=3e-4, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9999,
+        ),
+        "DoubleDeepQLearning": lambda: DoubleDeepQLearning(
+            state_dim=114, n_actions=32, hidden_dims=[256, 128],
+            lr=3e-4, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9999,
+            target_update_freq=500,
+        ),
+        "DDQN_ER": lambda: DDQNWithExperienceReplay(
+            state_dim=114, n_actions=32, hidden_dims=[256, 128],
+            lr=3e-4, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9999,
+            target_update_freq=500,
+            buffer_size=50_000, batch_size=64, min_buffer_size=5_000,
+        ),
+        "DDQN_PER": lambda: DDQNWithPrioritizedExperienceReplay(
+            state_dim=114, n_actions=32, hidden_dims=[256, 128],
+            lr=3e-4, gamma=0.99,
+            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9999,
+            target_update_freq=500,
+            buffer_size=50_000, batch_size=64, min_buffer_size=5_000,
+            alpha=0.6, beta_start=0.4, beta_end=1.0, beta_frames=3_000_000,
+        ),
     },
 }
 
