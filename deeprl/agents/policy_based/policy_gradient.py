@@ -1,7 +1,6 @@
 """
-Policy Gradient — Methodes basees sur la politique directe.
+Policy Gradient 
 
-Progression pedagogique — chaque classe ajoute UN concept :
 
 1. REINFORCE (Williams, 1992)
    Apprend directement pi(a|s; theta) par gradient ascent sur le retour
