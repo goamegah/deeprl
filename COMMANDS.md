@@ -42,11 +42,16 @@ python main.py --pvp --env quarto       # 2 joueurs humains sur Quarto
 ```bash
 python run_experiments.py                              # Lancer tous les entraînements
 python run_experiments.py --env gridworld               # Un seul environnement
-python run_experiments.py --agent TabularQLearning      # Un seul agent
+python run_experiments.py --agent TabularQLearning      # Un seul agent (value-based)
+python run_experiments.py --agent REINFORCE             # Un seul agent (policy gradient)
+python run_experiments.py --agent PPO                   # Un seul agent (policy gradient)
+python run_experiments.py --agent REINFORCE,REINFORCE_Baseline,REINFORCE_Critic,PPO  # Tous les PG
 python run_experiments.py --checkpoints 1000,10000      # Checkpoints custom
 python run_experiments.py --resume results/<dir>        # Reprendre un run
 python run_experiments.py --plot results/<dir>          # Re-générer les graphiques
 ```
+
+Agents disponibles : `Random`, `TabularQLearning`, `DeepQLearning`, `DoubleDeepQLearning`, `DDQN_ER`, `DDQN_PER`, `REINFORCE`, `REINFORCE_Baseline`, `REINFORCE_Critic`, `PPO`
 
 ## Contrôles dans la GUI
 
