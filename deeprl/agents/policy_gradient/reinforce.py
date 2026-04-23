@@ -35,7 +35,6 @@ References :
 - Schulman et al. (2017) "Proximal Policy Optimization Algorithms"
 """
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -309,8 +308,8 @@ class REINFORCEWithMeanBaseline(REINFORCE):
     immediatement efficace sur les episodes courts.
     """
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.name = "REINFORCEWithMeanBaseline"
 
     def _update_policy(self) -> Dict[str, float]:
@@ -651,12 +650,11 @@ class PPO(REINFORCEWithCriticBaseline):
 
     def _collect_actions(self) -> torch.Tensor:
         """
-        Reconstruit le tenseur des actions a partir des log_probs stockes.
+        Retourne le tenseur des actions stockees dans le buffer d'episode.
 
-        Astuce : on ne stocke pas les actions explicitement. On les deduit
-        en recalculant la distribution — mais pour PPO on a besoin des
-        actions pour recalculer les new_log_probs.
-        On stocke donc les actions dans un buffer dedie.
+        PPO doit recalculer log pi_new(a_t|s_t) pendant les n_epochs passes,
+        ce qui requiert de connaitre les actions exactes prises. Elles sont
+        accumulees dans self._actions par learn().
         """
         return torch.tensor(self._actions, dtype=torch.long, device=self.device)
 

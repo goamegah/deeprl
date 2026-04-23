@@ -93,9 +93,12 @@ class RandomRollout(Agent):
         best_action = available_actions[0]
         best_value = float("-inf")
 
+        # determinize(state) reconstruit l'env depuis l'observation de l'agent
+        # (plus correct que clone() qui copie l'etat interne de l'objet env)
         for action in available_actions:
             total = sum(
-                self._rollout(env, action) for _ in range(self.n_simulations)
+                self._rollout(env.determinize(state), action)
+                for _ in range(self.n_simulations)
             )
             avg = total / self.n_simulations
             if avg > best_value:
@@ -108,14 +111,16 @@ class RandomRollout(Agent):
     # Simulation
     # ------------------------------------------------------------------
 
-    def _rollout(self, env, first_action: int) -> float:
+    def _rollout(self, sim, first_action: int) -> float:
         """
         Simule une partie aleatoire en appliquant first_action en premier.
+
+        Args:
+            sim: Environnement deja determinize depuis l'observation courante.
 
         Returns:
             Retour disconte cumule du rollout.
         """
-        sim = env.clone()
         _, reward, done = sim.step(first_action)
 
         total = float(reward)
