@@ -127,12 +127,18 @@ class REINFORCE(Agent):
 
     def _mask_and_normalize(self, logits, available_actions):
         """Applique softmax + masque des actions invalides."""
+        if torch.isnan(logits).any():
+            logits = torch.zeros_like(logits)
         probs = torch.softmax(logits, dim=-1)
         if available_actions is not None:
             mask = torch.zeros(self.n_actions, device=self.device)
             mask[list(available_actions)] = 1.0
             probs = probs * mask
-            probs = probs / (probs.sum() + 1e-8)
+            total = probs.sum()
+            if total < 1e-8:
+                probs = mask / mask.sum()
+            else:
+                probs = probs / total
         return probs
 
     # ------------------------------------------------------------------
@@ -574,8 +580,8 @@ class PPO(REINFORCEWithCritic):
             self.optimizer.zero_grad()
             self.critic_optimizer.zero_grad()
             loss.backward()
-            nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=10.0)
-            nn.utils.clip_grad_norm_(self.critic_net.parameters(), max_norm=10.0)
+            nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=0.5)
+            nn.utils.clip_grad_norm_(self.critic_net.parameters(), max_norm=0.5)
             self.optimizer.step()
             self.critic_optimizer.step()
 
