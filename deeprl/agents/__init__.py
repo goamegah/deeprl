@@ -6,6 +6,7 @@ Ce module contient les différents agents d'apprentissage par renforcement.
 Catégories:
 - Tabular: Q-Learning classique (table)
 - Value-based: DQN et variantes (réseau de neurones)
+- Policy-gradient: REINFORCE et variantes (gradient de politique)
 """
 
 from deeprl.agents.base import Agent
@@ -17,6 +18,12 @@ from deeprl.agents.value_based.dqn import (
     DoubleDeepQLearning,
     DDQNWithExperienceReplay,
     DDQNWithPrioritizedExperienceReplay,
+)
+from deeprl.agents.policy_gradient.reinforce import (
+    REINFORCE,
+    REINFORCEWithMeanBaseline,
+    REINFORCEWithCriticBaseline,
+    PPO,
 )
 
 __all__ = [
@@ -31,4 +38,9 @@ __all__ = [
     "DoubleDeepQLearning",
     "DDQNWithExperienceReplay",
     "DDQNWithPrioritizedExperienceReplay",
+    # Policy Gradient
+    "REINFORCE",
+    "REINFORCEWithMeanBaseline",
+    "REINFORCEWithCriticBaseline",
+    "PPO",
 ]

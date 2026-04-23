@@ -19,6 +19,7 @@ from deeprl.agents import (
     RandomAgent, TabularQLearning,
     DeepQLearning, DoubleDeepQLearning,
     DDQNWithExperienceReplay, DDQNWithPrioritizedExperienceReplay,
+    REINFORCE, REINFORCEWithMeanBaseline, REINFORCEWithCriticBaseline, PPO,
 )
 
 
@@ -66,6 +67,23 @@ AGENT_REGISTRY = {
             buffer_size=5_000, batch_size=32, min_buffer_size=500,
             alpha=0.6, beta_start=0.4, beta_end=1.0, beta_frames=500_000,
         ),
+        "REINFORCE": lambda: REINFORCE(
+            state_dim=5, n_actions=2, hidden_dims=[32],
+            lr=1e-3, gamma=0.99,
+        ),
+        "REINFORCEWithMeanBaseline": lambda: REINFORCEWithMeanBaseline(
+            state_dim=5, n_actions=2, hidden_dims=[32],
+            lr=1e-3, gamma=0.99,
+        ),
+        "REINFORCEWithCriticBaseline": lambda: REINFORCEWithCriticBaseline(
+            state_dim=5, n_actions=2, hidden_dims=[32],
+            lr=1e-3, lr_critic=1e-3, gamma=0.99,
+        ),
+        "PPO": lambda: PPO(
+            state_dim=5, n_actions=2, hidden_dims=[32],
+            lr=1e-3, lr_critic=1e-3, gamma=0.99,
+            clip_eps=0.2, n_epochs=4, entropy_coef=0.01, value_coef=0.5,
+        ),
     },
     # -----------------------------------------------------------------------
     # GRIDWORLD — 25 états, 4 actions, grille 5×5
@@ -106,6 +124,23 @@ AGENT_REGISTRY = {
             buffer_size=10_000, batch_size=32, min_buffer_size=1_000,
             alpha=0.6, beta_start=0.4, beta_end=1.0, beta_frames=2_000_000,
         ),
+        "REINFORCE": lambda: REINFORCE(
+            state_dim=25, n_actions=4, hidden_dims=[64, 32],
+            lr=5e-4, gamma=0.99,
+        ),
+        "REINFORCEWithMeanBaseline": lambda: REINFORCEWithMeanBaseline(
+            state_dim=25, n_actions=4, hidden_dims=[64, 32],
+            lr=5e-4, gamma=0.99,
+        ),
+        "REINFORCEWithCriticBaseline": lambda: REINFORCEWithCriticBaseline(
+            state_dim=25, n_actions=4, hidden_dims=[64, 32],
+            lr=5e-4, lr_critic=5e-4, gamma=0.99,
+        ),
+        "PPO": lambda: PPO(
+            state_dim=25, n_actions=4, hidden_dims=[64, 32],
+            lr=5e-4, lr_critic=5e-4, gamma=0.99,
+            clip_eps=0.2, n_epochs=4, entropy_coef=0.01, value_coef=0.5,
+        ),
     },
     # -----------------------------------------------------------------------
     # TICTACTOE — 27 dims, 9 actions, épisodes ~5-9 steps
@@ -140,6 +175,23 @@ AGENT_REGISTRY = {
             target_update_freq=200,
             buffer_size=20_000, batch_size=32, min_buffer_size=1_000,
             alpha=0.6, beta_start=0.4, beta_end=1.0, beta_frames=700_000,
+        ),
+        "REINFORCE": lambda: REINFORCE(
+            state_dim=27, n_actions=9, hidden_dims=[128, 64],
+            lr=3e-4, gamma=0.99,
+        ),
+        "REINFORCEWithMeanBaseline": lambda: REINFORCEWithMeanBaseline(
+            state_dim=27, n_actions=9, hidden_dims=[128, 64],
+            lr=3e-4, gamma=0.99,
+        ),
+        "REINFORCEWithCriticBaseline": lambda: REINFORCEWithCriticBaseline(
+            state_dim=27, n_actions=9, hidden_dims=[128, 64],
+            lr=3e-4, lr_critic=3e-4, gamma=0.99,
+        ),
+        "PPO": lambda: PPO(
+            state_dim=27, n_actions=9, hidden_dims=[128, 64],
+            lr=3e-4, lr_critic=3e-4, gamma=0.99,
+            clip_eps=0.2, n_epochs=4, entropy_coef=0.01, value_coef=0.5,
         ),
     },
     # -----------------------------------------------------------------------
@@ -176,6 +228,23 @@ AGENT_REGISTRY = {
             target_update_freq=500,
             buffer_size=50_000, batch_size=64, min_buffer_size=5_000,
             alpha=0.6, beta_start=0.4, beta_end=1.0, beta_frames=3_000_000,
+        ),
+        "REINFORCE": lambda: REINFORCE(
+            state_dim=114, n_actions=32, hidden_dims=[256, 128],
+            lr=1e-4, gamma=0.99,
+        ),
+        "REINFORCEWithMeanBaseline": lambda: REINFORCEWithMeanBaseline(
+            state_dim=114, n_actions=32, hidden_dims=[256, 128],
+            lr=1e-4, gamma=0.99,
+        ),
+        "REINFORCEWithCriticBaseline": lambda: REINFORCEWithCriticBaseline(
+            state_dim=114, n_actions=32, hidden_dims=[256, 128],
+            lr=1e-4, lr_critic=1e-4, gamma=0.99,
+        ),
+        "PPO": lambda: PPO(
+            state_dim=114, n_actions=32, hidden_dims=[256, 128],
+            lr=1e-4, lr_critic=1e-4, gamma=0.99,
+            clip_eps=0.2, n_epochs=4, entropy_coef=0.01, value_coef=0.5,
         ),
     },
 }
