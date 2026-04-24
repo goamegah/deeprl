@@ -40,7 +40,6 @@ import torch.nn.functional as F
 
 from deeprl.agents.base import Agent
 from deeprl.agents.tree_search.mcts import MCTSNode
-from deeprl.networks.mlp import MLP
 
 
 # ============================================================================
