@@ -412,11 +412,9 @@ class DDQNWithExperienceReplay(DoubleDeepQLearning):
     - DQN/DDQN : learn() fait une MAJ sur la transition courante
     - DDQN+ER : learn() stocke puis MAJ sur un batch echantillonne
 
-    Note : en mode batch, on ne masque pas les actions invalides pour
-    les next_states car cette info n'est pas stockee dans le buffer.
-    Le reseau apprend implicitement a donner des Q faibles aux actions
-    invalides puisque ces paires (etat, action invalide) ne sont
-    jamais renforcees.
+    Le masque des actions valides du next_state est stocke dans le buffer
+    avec chaque transition et applique avant l'argmax de selection, ce qui
+    evite de selectionner des actions invalides comme meilleure action.
     """
 
     def __init__(
@@ -454,18 +452,27 @@ class DDQNWithExperienceReplay(DoubleDeepQLearning):
 
     def learn(self, state, action, reward, next_state, done, **kwargs):
         """
-        1. Stocke la transition dans le buffer
+        1. Stocke la transition dans le buffer (avec masque d'actions valides)
         2. Si assez de transitions : echantillonne un batch et MAJ
         """
-        # Stocker
-        self.buffer.push(state, action, reward, next_state, float(done))
+        # Construire le masque des actions valides du next_state
+        available_next = kwargs.get("available_actions_next")
+        if done or not available_next:
+            next_mask = np.ones(self.n_actions, dtype=np.float32)
+        else:
+            next_mask = np.zeros(self.n_actions, dtype=np.float32)
+            for a in available_next:
+                next_mask[a] = 1.0
+
+        # Stocker avec le masque
+        self.buffer.push(state, action, reward, next_state, float(done), next_mask)
 
         # Attendre que le buffer soit assez rempli
         if len(self.buffer) < self.min_buffer_size:
             return None
 
         # Echantillonner un mini-batch
-        states, actions_b, rewards_b, next_states, dones_b = self.buffer.sample(
+        states, actions_b, rewards_b, next_states, dones_b, next_masks_b = self.buffer.sample(
             self.batch_size
         )
 
@@ -482,8 +489,14 @@ class DDQNWithExperienceReplay(DoubleDeepQLearning):
 
         # Double Q-Learning targets (vectorise)
         with torch.no_grad():
-            # Selection par reseau en ligne
+            # Selection par reseau en ligne avec masquage des actions invalides
             next_q_online = self.q_net(next_states_t)
+            if next_masks_b is not None:
+                masks_t = torch.FloatTensor(next_masks_b).to(self.device)
+                next_q_online = torch.where(
+                    masks_t.bool(), next_q_online,
+                    torch.full_like(next_q_online, float('-inf'))
+                )
             best_actions = next_q_online.argmax(dim=1)
 
             # Evaluation par reseau cible
@@ -609,13 +622,22 @@ class DDQNWithPrioritizedExperienceReplay(DoubleDeepQLearning):
 
     def learn(self, state, action, reward, next_state, done, **kwargs):
         """
-        1. Stocke la transition avec priorite maximale
+        1. Stocke la transition avec priorite maximale (et masque d'actions valides)
         2. Echantillonne selon les priorites
         3. MAJ avec poids IS
         4. Met a jour les priorites avec les nouveaux TD-errors
         """
-        # Stocker
-        self.buffer.push(state, action, reward, next_state, float(done))
+        # Construire le masque des actions valides du next_state
+        available_next = kwargs.get("available_actions_next")
+        if done or not available_next:
+            next_mask = np.ones(self.n_actions, dtype=np.float32)
+        else:
+            next_mask = np.zeros(self.n_actions, dtype=np.float32)
+            for a in available_next:
+                next_mask[a] = 1.0
+
+        # Stocker avec le masque
+        self.buffer.push(state, action, reward, next_state, float(done), next_mask)
 
         if len(self.buffer) < self.min_buffer_size:
             return None
@@ -627,7 +649,7 @@ class DDQNWithPrioritizedExperienceReplay(DoubleDeepQLearning):
         # Echantillonner avec priorites
         (
             states, actions_b, rewards_b, next_states, dones_b,
-            indices, is_weights,
+            indices, is_weights, next_masks_b,
         ) = self.buffer.sample(self.batch_size, self.beta)
 
         states_t = torch.FloatTensor(states).to(self.device)
@@ -642,9 +664,15 @@ class DDQNWithPrioritizedExperienceReplay(DoubleDeepQLearning):
             1, actions_t.unsqueeze(1)
         ).squeeze(1)
 
-        # Double Q-Learning targets
+        # Double Q-Learning targets avec masquage des actions invalides
         with torch.no_grad():
             next_q_online = self.q_net(next_states_t)
+            if next_masks_b is not None:
+                masks_t = torch.FloatTensor(next_masks_b).to(self.device)
+                next_q_online = torch.where(
+                    masks_t.bool(), next_q_online,
+                    torch.full_like(next_q_online, float('-inf'))
+                )
             best_actions = next_q_online.argmax(dim=1)
 
             next_q_target = self.target_net(next_states_t)

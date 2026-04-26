@@ -20,7 +20,7 @@ References :
 """
 
 import numpy as np
-from typing import Tuple
+from typing import Optional, Tuple
 
 
 # ============================================================================
@@ -63,9 +63,10 @@ class ReplayBuffer:
         reward: float,
         next_state: np.ndarray,
         done: float,
+        next_action_mask: Optional[np.ndarray] = None,
     ):
         """Ajoute une transition au buffer."""
-        transition = (state, action, reward, next_state, done)
+        transition = (state, action, reward, next_state, done, next_action_mask)
 
         if len(self.buffer) < self.capacity:
             self.buffer.append(transition)
@@ -76,7 +77,7 @@ class ReplayBuffer:
 
     def sample(
         self, batch_size: int
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
         """
         Echantillonne un mini-batch uniformement.
 
@@ -84,22 +85,26 @@ class ReplayBuffer:
             batch_size: Taille du batch
 
         Returns:
-            (states, actions, rewards, next_states, dones)
+            (states, actions, rewards, next_states, dones, next_action_masks)
             Chaque element est un numpy array de taille (batch_size, ...).
+            next_action_masks est None si aucun masque n'a ete stocke.
         """
         indices = np.random.choice(
             len(self.buffer), size=batch_size,
             replace=(len(self.buffer) < batch_size)
         )
 
-        states, actions, rewards, next_states, dones = [], [], [], [], []
+        states, actions, rewards, next_states, dones, masks = [], [], [], [], [], []
         for idx in indices:
-            s, a, r, ns, d = self.buffer[idx]
-            states.append(s)
-            actions.append(a)
-            rewards.append(r)
-            next_states.append(ns)
-            dones.append(d)
+            entry = self.buffer[idx]
+            states.append(entry[0])
+            actions.append(entry[1])
+            rewards.append(entry[2])
+            next_states.append(entry[3])
+            dones.append(entry[4])
+            masks.append(entry[5] if len(entry) > 5 else None)
+
+        mask_array = np.array(masks, dtype=np.float32) if all(m is not None for m in masks) else None
 
         return (
             np.array(states, dtype=np.float32),
@@ -107,6 +112,7 @@ class ReplayBuffer:
             np.array(rewards, dtype=np.float32),
             np.array(next_states, dtype=np.float32),
             np.array(dones, dtype=np.float32),
+            mask_array,
         )
 
     def __len__(self) -> int:
@@ -249,6 +255,7 @@ class PrioritizedReplayBuffer:
         reward: float,
         next_state: np.ndarray,
         done: float,
+        next_action_mask: Optional[np.ndarray] = None,
     ):
         """
         Ajoute une transition avec la priorite maximale.
@@ -257,7 +264,7 @@ class PrioritizedReplayBuffer:
         garantir qu'elles soient echantillonnees au moins une fois.
         """
         priority = self.max_priority ** self.alpha
-        self.tree.add(priority, (state, action, reward, next_state, done))
+        self.tree.add(priority, (state, action, reward, next_state, done, next_action_mask))
 
     def sample(
         self, batch_size: int, beta: float = 0.4
@@ -309,7 +316,10 @@ class PrioritizedReplayBuffer:
                     indices.append(tree_idx)
                     priorities.append(max(priority, self.epsilon))
 
-        states, actions, rewards, next_states, dones = zip(*batch)
+        unpacked = list(zip(*batch))
+        states, actions, rewards, next_states, dones = unpacked[:5]
+        raw_masks = list(unpacked[5]) if len(unpacked) > 5 else [None] * len(batch)
+        mask_array = np.array(raw_masks, dtype=np.float32) if all(m is not None for m in raw_masks) else None
 
         # Importance Sampling weights : w_i = (N * P(i))^{-beta}
         priorities_arr = np.array(priorities, dtype=np.float64)
@@ -325,6 +335,7 @@ class PrioritizedReplayBuffer:
             np.array(dones, dtype=np.float32),
             np.array(indices, dtype=np.int64),
             np.array(weights, dtype=np.float32),
+            mask_array,
         )
 
     def update_priorities(self, indices: np.ndarray, td_errors: np.ndarray):
