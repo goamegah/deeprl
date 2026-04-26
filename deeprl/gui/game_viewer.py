@@ -874,12 +874,7 @@ class GameViewer:
             player_txt = self.font.render(f"J{cp} — {'Vous' if is_human_turn else opponent_name or ''}", True, player_color)
         self.screen.blit(player_txt, (x, Y_PLAYER))
         
-        if self.agent:
-            mode_name = f"Observation: {self.agent.name}"
-        elif opponent_name:
-            mode_name = f"Humain vs {opponent_name}"
-        else:
-            mode_name = "Humain"
+        mode_name = self._get_quarto_mode_name(opponent_name)
         mode_txt = self.font_small.render(mode_name, True, (180, 180, 180))
         self.screen.blit(mode_txt, (x, Y_PLAYER + 32))
         
@@ -1133,12 +1128,7 @@ class GameViewer:
         y += 28
         
         # Agent
-        if self.agent:
-            agent_text = self.font_small.render(f"Agent: {self.agent.name}", True, self.BLACK)
-        else:
-            agent_text = self.font_small.render("Mode: Humain", True, self.GREEN)
-        self.screen.blit(agent_text, (x, y))
-        y += 28
+        y = self._draw_agent_info(x, y)
         
         # Vitesse de simulation
         speed_text = self.font_small.render(
@@ -1231,6 +1221,23 @@ class GameViewer:
                 end_text = self.font.render("FIN", True, self.GRAY)
             self.screen.blit(end_text, (x, state_y))
     
+    def _draw_agent_info(self, x: int, y: int) -> int:
+        """Dessine les infos agent dans le panel. Surchargeable par les sous-classes."""
+        if self.agent:
+            agent_text = self.font_small.render(f"Agent: {self.agent.name}", True, self.BLACK)
+        else:
+            agent_text = self.font_small.render("Mode: Humain", True, self.GREEN)
+        self.screen.blit(agent_text, (x, y))
+        return y + 28
+
+    def _get_quarto_mode_name(self, opponent_name: str) -> str:
+        """Retourne le label de mode pour le panel Quarto. Surchargeable."""
+        if self.agent:
+            return f"Observation: {self.agent.name}"
+        elif opponent_name:
+            return f"Humain vs {opponent_name}"
+        return "Humain"
+
     def _update_stats(self):
         """Met à jour les statistiques en fin d'épisode."""
         if hasattr(self.env, '_winner'):
@@ -1246,6 +1253,99 @@ class GameViewer:
             self.losses += 1
         else:
             self.draws += 1
+
+
+class AgentVsAgentViewer(GameViewer):
+    """
+    Viewer pour observer deux agents s'affronter.
+
+    J0: agent_0, J1: agent_1. Les deux agents sont des IA.
+    Utile pour comparer deux agents entraînés face à face.
+    """
+
+    def __init__(
+        self,
+        env: Environment,
+        agent_0: Agent,
+        agent_1: Agent,
+        cell_size: int = 80,
+        fps: int = 2,
+        title: str = "Agent vs Agent"
+    ):
+        super().__init__(
+            env=env,
+            agent=agent_0,
+            cell_size=cell_size,
+            fps=fps,
+            title=title
+        )
+        self.agent_0 = agent_0
+        self.agent_1 = agent_1
+
+    # ── Hooks d'affichage ────────────────────────────────────────────────────
+
+    def _draw_agent_info(self, x: int, y: int) -> int:
+        t0 = self.font_small.render(f"J0: {self.agent_0.name}", True, self.BLACK)
+        t1 = self.font_small.render(f"J1: {self.agent_1.name}", True, self.GRAY)
+        self.screen.blit(t0, (x, y))
+        self.screen.blit(t1, (x, y + 22))
+        return y + 50
+
+    def _get_quarto_mode_name(self, opponent_name: str) -> str:
+        return f"{self.agent_0.name} vs {self.agent_1.name}"
+
+    # ── Logique de jeu ───────────────────────────────────────────────────────
+
+    def _run_episode(self):
+        """Execute un episode en alternant entre agent_0 (J0) et agent_1 (J1)."""
+        state = self.env.reset()
+        self.total_reward = 0
+        self.step_count = 0
+        self._restart_requested = False
+
+        while self.running and not self.env.is_game_over:
+            self._handle_events()
+
+            if not self.running:
+                break
+            if self._restart_requested:
+                self._restart_requested = False
+                return
+            if self.paused and not self.step_mode:
+                self._render()
+                self.clock.tick(30)
+                continue
+
+            # Dispatcher vers le bon agent selon le joueur courant
+            current = self.env.current_player
+            agent = self.agent_0 if current == 0 else self.agent_1
+            available = self.env.get_available_actions()
+
+            if hasattr(agent, 'n_simulations'):
+                action = agent.act(state, available, training=False, env=self.env)
+            else:
+                action = agent.act(state, available, training=False)
+
+            self.step_mode = False
+            state, reward, done = self.env.step(action)
+            self.total_reward += reward
+            self.step_count += 1
+
+            self._render()
+            self.clock.tick(self.fps)
+
+        if self.env.is_game_over:
+            self._update_stats()
+            self.paused = True
+            while self.paused and self.running:
+                self._handle_events()
+                if self._restart_requested:
+                    self._restart_requested = False
+                    self.paused = False
+                    return
+                self._render()
+                self.clock.tick(30)
+            self.paused = False
 
 
 class HumanVsAgentViewer(GameViewer):
@@ -1404,6 +1504,39 @@ class HumanVsAgentViewer(GameViewer):
             else:
                 turn_text = self.font.render("Tour IA...", True, self.ORANGE)
             self.screen.blit(turn_text, (x, y))
+
+
+def watch_agent_vs_agent(
+    env: Environment,
+    agent_0: Agent,
+    agent_1: Agent,
+    n_episodes: int = 10,
+    fps: int = 2
+):
+    """
+    Observe deux agents s'affronter (J0: agent_0, J1: agent_1).
+
+    Args:
+        env: Environnement 2 joueurs (TicTacToe, Quarto)
+        agent_0: Agent jouant en premier (joueur 0)
+        agent_1: Agent jouant en second (joueur 1)
+        n_episodes: Nombre de parties
+        fps: Vitesse d'affichage
+    """
+    if not PYGAME_AVAILABLE:
+        print("[WARN] pygame non disponible. Installez-le avec: pip install pygame")
+        return
+
+    viewer = AgentVsAgentViewer(
+        env=env,
+        agent_0=agent_0,
+        agent_1=agent_1,
+        fps=fps,
+        title=f"{agent_0.name} vs {agent_1.name}"
+    )
+
+    print(f"[GAME] {agent_0.name} (J0) vs {agent_1.name} (J1)")
+    viewer.run(n_episodes=n_episodes)
 
 
 def play_human_vs_agent(

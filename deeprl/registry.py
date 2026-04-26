@@ -69,53 +69,53 @@ AGENT_REGISTRY = {
             buffer_size=5_000, batch_size=32, min_buffer_size=500,
             alpha=0.6, beta_start=0.4, beta_end=1.0, beta_frames=500_000,
         ),
-        "REINFORCE": lambda: REINFORCE(
-            state_dim=5, n_actions=2, hidden_dims=[32],
-            lr=1e-3, gamma=0.99,
-        ),
-        "REINFORCEWithMeanBaseline": lambda: REINFORCEWithMeanBaseline(
-            state_dim=5, n_actions=2, hidden_dims=[32],
-            lr=1e-3, gamma=0.99,
-        ),
-        "REINFORCEWithCriticBaseline": lambda: REINFORCEWithCriticBaseline(
-            state_dim=5, n_actions=2, hidden_dims=[32],
-            lr=1e-3, lr_critic=1e-3, gamma=0.99,
-        ),
-        "PPO": lambda: PPO(
-            state_dim=5, n_actions=2, hidden_dims=[32],
-            lr=1e-3, lr_critic=1e-3, gamma=0.99,
-            clip_eps=0.2, n_epochs=4, entropy_coef=0.01, value_coef=0.5,
-        ),
-        "RandomRollout": lambda: RandomRollout(
-            state_dim=5, n_actions=2, n_simulations=20, max_depth=50, gamma=1.0,
-        ),
-        "MCTS": lambda: MCTS(
-            state_dim=5, n_actions=2, n_simulations=50, c_puct=1.41, max_depth=50, gamma=1.0,
-        ),
+        # "REINFORCE": lambda: REINFORCE(
+        #     state_dim=5, n_actions=2, hidden_dims=[32],
+        #     lr=1e-3, gamma=0.99,
+        # ),
+        # "REINFORCEWithMeanBaseline": lambda: REINFORCEWithMeanBaseline(
+        #     state_dim=5, n_actions=2, hidden_dims=[32],
+        #     lr=1e-3, gamma=0.99,
+        # ),
+        # "REINFORCEWithCriticBaseline": lambda: REINFORCEWithCriticBaseline(
+        #     state_dim=5, n_actions=2, hidden_dims=[32],
+        #     lr=1e-3, lr_critic=1e-3, gamma=0.99,
+        # ),
+        # "PPO": lambda: PPO(
+        #     state_dim=5, n_actions=2, hidden_dims=[32],
+        #     lr=1e-3, lr_critic=1e-3, gamma=0.99,
+        #     clip_eps=0.2, n_epochs=4, entropy_coef=0.01, value_coef=0.5,
+        # ),
+        # "RandomRollout": lambda: RandomRollout(
+        #     state_dim=5, n_actions=2, n_simulations=20, max_depth=50, gamma=1.0,
+        # ),
+        # "MCTS": lambda: MCTS(
+        #     state_dim=5, n_actions=2, n_simulations=50, c_puct=1.41, max_depth=50, gamma=1.0,
+        # ),
         "AlphaZero": lambda: AlphaZero(
             state_dim=5, n_actions=2, hidden_dims=[32],
             lr=1e-3, gamma=0.99, n_simulations=25, c_puct=1.0,
             temperature=1.0, l2_reg=1e-4,
             buffer_size=5_000, batch_size=32, min_buffer_size=200,
         ),
-        "MuZero": lambda: MuZero(
-            state_dim=5, n_actions=2, latent_dim=16, hidden_dims=[32],
-            lr=1e-3, gamma=0.99, n_simulations=25, c_puct=1.0,
-            n_unroll=5, temperature=1.0, l2_reg=1e-4,
-            buffer_size=5_000, batch_size=32, min_buffer_size=200,
-        ),
-        "MuZeroStochastic": lambda: MuZeroStochastic(
-            state_dim=5, n_actions=2, latent_dim=16, n_chance=4, hidden_dims=[32],
-            lr=1e-3, gamma=0.99, n_simulations=25, c_puct=1.0,
-            n_unroll=5, temperature=1.0, l2_reg=1e-4,
-            buffer_size=5_000, batch_size=32, min_buffer_size=200,
-        ),
-        "ExpertApprentice": lambda: ExpertApprentice(
-            state_dim=5, n_actions=2, hidden_dims=[32],
-            lr=1e-3, n_simulations=30, c_puct=1.41, gamma=1.0,
-            max_depth=50, l2_reg=1e-4, use_student_ratio=0.0,
-            buffer_size=5_000, batch_size=32, min_buffer_size=200,
-        ),
+        # "MuZero": lambda: MuZero(
+        #     state_dim=5, n_actions=2, latent_dim=16, hidden_dims=[32],
+        #     lr=1e-3, gamma=0.99, n_simulations=25, c_puct=1.0,
+        #     n_unroll=5, temperature=1.0, l2_reg=1e-4,
+        #     buffer_size=5_000, batch_size=32, min_buffer_size=200,
+        # ),
+        # "MuZeroStochastic": lambda: MuZeroStochastic(
+        #     state_dim=5, n_actions=2, latent_dim=16, n_chance=4, hidden_dims=[32],
+        #     lr=1e-3, gamma=0.99, n_simulations=25, c_puct=1.0,
+        #     n_unroll=5, temperature=1.0, l2_reg=1e-4,
+        #     buffer_size=5_000, batch_size=32, min_buffer_size=200,
+        # ),
+        # "ExpertApprentice": lambda: ExpertApprentice(
+        #     state_dim=5, n_actions=2, hidden_dims=[32],
+        #     lr=1e-3, n_simulations=30, c_puct=1.41, gamma=1.0,
+        #     max_depth=50, l2_reg=1e-4, use_student_ratio=0.0,
+        #     buffer_size=5_000, batch_size=32, min_buffer_size=200,
+        # ),
     },
     # -----------------------------------------------------------------------
     # GRIDWORLD — 25 états, 4 actions, grille 5×5
@@ -156,53 +156,53 @@ AGENT_REGISTRY = {
             buffer_size=10_000, batch_size=32, min_buffer_size=1_000,
             alpha=0.6, beta_start=0.4, beta_end=1.0, beta_frames=2_000_000,
         ),
-        "REINFORCE": lambda: REINFORCE(
-            state_dim=25, n_actions=4, hidden_dims=[64, 32],
-            lr=5e-4, gamma=0.99,
-        ),
-        "REINFORCEWithMeanBaseline": lambda: REINFORCEWithMeanBaseline(
-            state_dim=25, n_actions=4, hidden_dims=[64, 32],
-            lr=5e-4, gamma=0.99,
-        ),
-        "REINFORCEWithCriticBaseline": lambda: REINFORCEWithCriticBaseline(
-            state_dim=25, n_actions=4, hidden_dims=[64, 32],
-            lr=5e-4, lr_critic=5e-4, gamma=0.99,
-        ),
-        "PPO": lambda: PPO(
-            state_dim=25, n_actions=4, hidden_dims=[64, 32],
-            lr=5e-4, lr_critic=5e-4, gamma=0.99,
-            clip_eps=0.2, n_epochs=4, entropy_coef=0.01, value_coef=0.5,
-        ),
-        "RandomRollout": lambda: RandomRollout(
-            state_dim=25, n_actions=4, n_simulations=20, max_depth=100, gamma=1.0,
-        ),
-        "MCTS": lambda: MCTS(
-            state_dim=25, n_actions=4, n_simulations=100, c_puct=1.41, max_depth=100, gamma=1.0,
-        ),
+        # "REINFORCE": lambda: REINFORCE(
+        #     state_dim=25, n_actions=4, hidden_dims=[64, 32],
+        #     lr=5e-4, gamma=0.99,
+        # ),
+        # "REINFORCEWithMeanBaseline": lambda: REINFORCEWithMeanBaseline(
+        #     state_dim=25, n_actions=4, hidden_dims=[64, 32],
+        #     lr=5e-4, gamma=0.99,
+        # ),
+        # "REINFORCEWithCriticBaseline": lambda: REINFORCEWithCriticBaseline(
+        #     state_dim=25, n_actions=4, hidden_dims=[64, 32],
+        #     lr=5e-4, lr_critic=5e-4, gamma=0.99,
+        # ),
+        # "PPO": lambda: PPO(
+        #     state_dim=25, n_actions=4, hidden_dims=[64, 32],
+        #     lr=5e-4, lr_critic=5e-4, gamma=0.99,
+        #     clip_eps=0.2, n_epochs=4, entropy_coef=0.01, value_coef=0.5,
+        # ),
+        # "RandomRollout": lambda: RandomRollout(
+        #     state_dim=25, n_actions=4, n_simulations=20, max_depth=100, gamma=1.0,
+        # ),
+        # "MCTS": lambda: MCTS(
+        #     state_dim=25, n_actions=4, n_simulations=100, c_puct=1.41, max_depth=100, gamma=1.0,
+        # ),
         "AlphaZero": lambda: AlphaZero(
             state_dim=25, n_actions=4, hidden_dims=[64, 32],
             lr=5e-4, gamma=0.99, n_simulations=50, c_puct=1.0,
             temperature=1.0, l2_reg=1e-4,
             buffer_size=10_000, batch_size=32, min_buffer_size=500,
         ),
-        "MuZero": lambda: MuZero(
-            state_dim=25, n_actions=4, latent_dim=32, hidden_dims=[64, 32],
-            lr=5e-4, gamma=0.99, n_simulations=50, c_puct=1.0,
-            n_unroll=5, temperature=1.0, l2_reg=1e-4,
-            buffer_size=10_000, batch_size=32, min_buffer_size=500,
-        ),
-        "MuZeroStochastic": lambda: MuZeroStochastic(
-            state_dim=25, n_actions=4, latent_dim=32, n_chance=4, hidden_dims=[64, 32],
-            lr=5e-4, gamma=0.99, n_simulations=50, c_puct=1.0,
-            n_unroll=5, temperature=1.0, l2_reg=1e-4,
-            buffer_size=10_000, batch_size=32, min_buffer_size=500,
-        ),
-        "ExpertApprentice": lambda: ExpertApprentice(
-            state_dim=25, n_actions=4, hidden_dims=[64, 32],
-            lr=5e-4, n_simulations=50, c_puct=1.41, gamma=1.0,
-            max_depth=100, l2_reg=1e-4, use_student_ratio=0.0,
-            buffer_size=10_000, batch_size=32, min_buffer_size=500,
-        ),
+        # "MuZero": lambda: MuZero(
+        #     state_dim=25, n_actions=4, latent_dim=32, hidden_dims=[64, 32],
+        #     lr=5e-4, gamma=0.99, n_simulations=50, c_puct=1.0,
+        #     n_unroll=5, temperature=1.0, l2_reg=1e-4,
+        #     buffer_size=10_000, batch_size=32, min_buffer_size=500,
+        # ),
+        # "MuZeroStochastic": lambda: MuZeroStochastic(
+        #     state_dim=25, n_actions=4, latent_dim=32, n_chance=4, hidden_dims=[64, 32],
+        #     lr=5e-4, gamma=0.99, n_simulations=50, c_puct=1.0,
+        #     n_unroll=5, temperature=1.0, l2_reg=1e-4,
+        #     buffer_size=10_000, batch_size=32, min_buffer_size=500,
+        # ),
+        # "ExpertApprentice": lambda: ExpertApprentice(
+        #     state_dim=25, n_actions=4, hidden_dims=[64, 32],
+        #     lr=5e-4, n_simulations=50, c_puct=1.41, gamma=1.0,
+        #     max_depth=100, l2_reg=1e-4, use_student_ratio=0.0,
+        #     buffer_size=10_000, batch_size=32, min_buffer_size=500,
+        # ),
     },
     # -----------------------------------------------------------------------
     # TICTACTOE — 27 dims, 9 actions, épisodes ~5-9 steps
@@ -238,53 +238,53 @@ AGENT_REGISTRY = {
             buffer_size=20_000, batch_size=32, min_buffer_size=1_000,
             alpha=0.6, beta_start=0.4, beta_end=1.0, beta_frames=700_000,
         ),
-        "REINFORCE": lambda: REINFORCE(
-            state_dim=27, n_actions=9, hidden_dims=[128, 64],
-            lr=3e-4, gamma=0.99,
-        ),
-        "REINFORCEWithMeanBaseline": lambda: REINFORCEWithMeanBaseline(
-            state_dim=27, n_actions=9, hidden_dims=[128, 64],
-            lr=3e-4, gamma=0.99,
-        ),
-        "REINFORCEWithCriticBaseline": lambda: REINFORCEWithCriticBaseline(
-            state_dim=27, n_actions=9, hidden_dims=[128, 64],
-            lr=3e-4, lr_critic=3e-4, gamma=0.99,
-        ),
-        "PPO": lambda: PPO(
-            state_dim=27, n_actions=9, hidden_dims=[128, 64],
-            lr=3e-4, lr_critic=3e-4, gamma=0.99,
-            clip_eps=0.2, n_epochs=4, entropy_coef=0.01, value_coef=0.5,
-        ),
-        "RandomRollout": lambda: RandomRollout(
-            state_dim=27, n_actions=9, n_simulations=20, max_depth=20, gamma=1.0,
-        ),
-        "MCTS": lambda: MCTS(
-            state_dim=27, n_actions=9, n_simulations=100, c_puct=1.41, max_depth=20, gamma=1.0,
-        ),
+        # "REINFORCE": lambda: REINFORCE(
+        #     state_dim=27, n_actions=9, hidden_dims=[128, 64],
+        #     lr=3e-4, gamma=0.99,
+        # ),
+        # "REINFORCEWithMeanBaseline": lambda: REINFORCEWithMeanBaseline(
+        #     state_dim=27, n_actions=9, hidden_dims=[128, 64],
+        #     lr=3e-4, gamma=0.99,
+        # ),
+        # "REINFORCEWithCriticBaseline": lambda: REINFORCEWithCriticBaseline(
+        #     state_dim=27, n_actions=9, hidden_dims=[128, 64],
+        #     lr=3e-4, lr_critic=3e-4, gamma=0.99,
+        # ),
+        # "PPO": lambda: PPO(
+        #     state_dim=27, n_actions=9, hidden_dims=[128, 64],
+        #     lr=3e-4, lr_critic=3e-4, gamma=0.99,
+        #     clip_eps=0.2, n_epochs=4, entropy_coef=0.01, value_coef=0.5,
+        # ),
+        # "RandomRollout": lambda: RandomRollout(
+        #     state_dim=27, n_actions=9, n_simulations=20, max_depth=20, gamma=1.0,
+        # ),
+        # "MCTS": lambda: MCTS(
+        #     state_dim=27, n_actions=9, n_simulations=100, c_puct=1.41, max_depth=20, gamma=1.0,
+        # ),
         "AlphaZero": lambda: AlphaZero(
             state_dim=27, n_actions=9, hidden_dims=[128, 64],
             lr=3e-4, gamma=0.99, n_simulations=50, c_puct=1.0,
             temperature=1.0, l2_reg=1e-4,
             buffer_size=20_000, batch_size=64, min_buffer_size=1_000,
         ),
-        "MuZero": lambda: MuZero(
-            state_dim=27, n_actions=9, latent_dim=32, hidden_dims=[128, 64],
-            lr=3e-4, gamma=0.99, n_simulations=50, c_puct=1.0,
-            n_unroll=5, temperature=1.0, l2_reg=1e-4,
-            buffer_size=20_000, batch_size=64, min_buffer_size=1_000,
-        ),
-        "MuZeroStochastic": lambda: MuZeroStochastic(
-            state_dim=27, n_actions=9, latent_dim=32, n_chance=8, hidden_dims=[128, 64],
-            lr=3e-4, gamma=0.99, n_simulations=50, c_puct=1.0,
-            n_unroll=5, temperature=1.0, l2_reg=1e-4,
-            buffer_size=20_000, batch_size=64, min_buffer_size=1_000,
-        ),
-        "ExpertApprentice": lambda: ExpertApprentice(
-            state_dim=27, n_actions=9, hidden_dims=[128, 64],
-            lr=3e-4, n_simulations=50, c_puct=1.41, gamma=1.0,
-            max_depth=20, l2_reg=1e-4, use_student_ratio=0.0,
-            buffer_size=20_000, batch_size=64, min_buffer_size=1_000,
-        ),
+        # "MuZero": lambda: MuZero(
+        #     state_dim=27, n_actions=9, latent_dim=32, hidden_dims=[128, 64],
+        #     lr=3e-4, gamma=0.99, n_simulations=50, c_puct=1.0,
+        #     n_unroll=5, temperature=1.0, l2_reg=1e-4,
+        #     buffer_size=20_000, batch_size=64, min_buffer_size=1_000,
+        # ),
+        # "MuZeroStochastic": lambda: MuZeroStochastic(
+        #     state_dim=27, n_actions=9, latent_dim=32, n_chance=8, hidden_dims=[128, 64],
+        #     lr=3e-4, gamma=0.99, n_simulations=50, c_puct=1.0,
+        #     n_unroll=5, temperature=1.0, l2_reg=1e-4,
+        #     buffer_size=20_000, batch_size=64, min_buffer_size=1_000,
+        # ),
+        # "ExpertApprentice": lambda: ExpertApprentice(
+        #     state_dim=27, n_actions=9, hidden_dims=[128, 64],
+        #     lr=3e-4, n_simulations=50, c_puct=1.41, gamma=1.0,
+        #     max_depth=20, l2_reg=1e-4, use_student_ratio=0.0,
+        #     buffer_size=20_000, batch_size=64, min_buffer_size=1_000,
+        # ),
     },
     # -----------------------------------------------------------------------
     # QUARTO — 114 dims, 32 actions, épisodes ~10-16 steps
@@ -292,9 +292,9 @@ AGENT_REGISTRY = {
     # min_buffer_size = 10% du buffer pour diversité suffisante au démarrage
     # -----------------------------------------------------------------------
     "quarto": {
-        "Random": lambda: RandomAgent(
-            state_dim=114, n_actions=32,
-        ),
+        # "Random": lambda: RandomAgent(
+        #     state_dim=114, n_actions=32,
+        # ),
         "DeepQLearning": lambda: DeepQLearning(
             state_dim=114, n_actions=32, hidden_dims=[256, 128],
             lr=3e-4, gamma=0.99,
@@ -321,53 +321,53 @@ AGENT_REGISTRY = {
             buffer_size=50_000, batch_size=64, min_buffer_size=5_000,
             alpha=0.6, beta_start=0.4, beta_end=1.0, beta_frames=3_000_000,
         ),
-        "REINFORCE": lambda: REINFORCE(
-            state_dim=114, n_actions=32, hidden_dims=[256, 128],
-            lr=1e-4, gamma=0.99,
-        ),
-        "REINFORCEWithMeanBaseline": lambda: REINFORCEWithMeanBaseline(
-            state_dim=114, n_actions=32, hidden_dims=[256, 128],
-            lr=1e-4, gamma=0.99,
-        ),
-        "REINFORCEWithCriticBaseline": lambda: REINFORCEWithCriticBaseline(
-            state_dim=114, n_actions=32, hidden_dims=[256, 128],
-            lr=1e-4, lr_critic=1e-4, gamma=0.99,
-        ),
-        "PPO": lambda: PPO(
-            state_dim=114, n_actions=32, hidden_dims=[256, 128],
-            lr=1e-4, lr_critic=1e-4, gamma=0.99,
-            clip_eps=0.2, n_epochs=4, entropy_coef=0.01, value_coef=0.5,
-        ),
-        "RandomRollout": lambda: RandomRollout(
-            state_dim=114, n_actions=32, n_simulations=10, max_depth=32, gamma=1.0,
-        ),
-        "MCTS": lambda: MCTS(
-            state_dim=114, n_actions=32, n_simulations=50, c_puct=1.41, max_depth=32, gamma=1.0,
-        ),
-        "AlphaZero": lambda: AlphaZero(
-            state_dim=114, n_actions=32, hidden_dims=[256, 128],
-            lr=1e-4, gamma=0.99, n_simulations=25, c_puct=1.0,
-            temperature=1.0, l2_reg=1e-4,
-            buffer_size=50_000, batch_size=64, min_buffer_size=2_000,
-        ),
-        "MuZero": lambda: MuZero(
-            state_dim=114, n_actions=32, latent_dim=64, hidden_dims=[256, 128],
-            lr=1e-4, gamma=0.99, n_simulations=25, c_puct=1.0,
-            n_unroll=5, temperature=1.0, l2_reg=1e-4,
-            buffer_size=50_000, batch_size=64, min_buffer_size=2_000,
-        ),
-        "MuZeroStochastic": lambda: MuZeroStochastic(
-            state_dim=114, n_actions=32, latent_dim=64, n_chance=8, hidden_dims=[256, 128],
-            lr=1e-4, gamma=0.99, n_simulations=25, c_puct=1.0,
-            n_unroll=5, temperature=1.0, l2_reg=1e-4,
-            buffer_size=50_000, batch_size=64, min_buffer_size=2_000,
-        ),
-        "ExpertApprentice": lambda: ExpertApprentice(
-            state_dim=114, n_actions=32, hidden_dims=[256, 128],
-            lr=1e-4, n_simulations=25, c_puct=1.41, gamma=1.0,
-            max_depth=32, l2_reg=1e-4, use_student_ratio=0.0,
-            buffer_size=50_000, batch_size=64, min_buffer_size=2_000,
-        ),
+        # "REINFORCE": lambda: REINFORCE(
+        #     state_dim=114, n_actions=32, hidden_dims=[256, 128],
+        #     lr=1e-4, gamma=0.99,
+        # ),
+        # "REINFORCEWithMeanBaseline": lambda: REINFORCEWithMeanBaseline(
+        #     state_dim=114, n_actions=32, hidden_dims=[256, 128],
+        #     lr=1e-4, gamma=0.99,
+        # ),
+        # "REINFORCEWithCriticBaseline": lambda: REINFORCEWithCriticBaseline(
+        #     state_dim=114, n_actions=32, hidden_dims=[256, 128],
+        #     lr=1e-4, lr_critic=1e-4, gamma=0.99,
+        # ),
+        # "PPO": lambda: PPO(
+        #     state_dim=114, n_actions=32, hidden_dims=[256, 128],
+        #     lr=1e-4, lr_critic=1e-4, gamma=0.99,
+        #     clip_eps=0.2, n_epochs=4, entropy_coef=0.01, value_coef=0.5,
+        # ),
+        # "RandomRollout": lambda: RandomRollout(
+        #     state_dim=114, n_actions=32, n_simulations=10, max_depth=32, gamma=1.0,
+        # ),
+        # "MCTS": lambda: MCTS(
+        #     state_dim=114, n_actions=32, n_simulations=50, c_puct=1.41, max_depth=32, gamma=1.0,
+        # ),
+        # "AlphaZero": lambda: AlphaZero(
+        #     state_dim=114, n_actions=32, hidden_dims=[256, 128],
+        #     lr=1e-4, gamma=0.99, n_simulations=25, c_puct=1.0,
+        #     temperature=1.0, l2_reg=1e-4,
+        #     buffer_size=50_000, batch_size=64, min_buffer_size=2_000,
+        # ),
+        # "MuZero": lambda: MuZero(
+        #     state_dim=114, n_actions=32, latent_dim=64, hidden_dims=[256, 128],
+        #     lr=1e-4, gamma=0.99, n_simulations=25, c_puct=1.0,
+        #     n_unroll=5, temperature=1.0, l2_reg=1e-4,
+        #     buffer_size=50_000, batch_size=64, min_buffer_size=2_000,
+        # ),
+        # "MuZeroStochastic": lambda: MuZeroStochastic(
+        #     state_dim=114, n_actions=32, latent_dim=64, n_chance=8, hidden_dims=[256, 128],
+        #     lr=1e-4, gamma=0.99, n_simulations=25, c_puct=1.0,
+        #     n_unroll=5, temperature=1.0, l2_reg=1e-4,
+        #     buffer_size=50_000, batch_size=64, min_buffer_size=2_000,
+        # ),
+        # "ExpertApprentice": lambda: ExpertApprentice(
+        #     state_dim=114, n_actions=32, hidden_dims=[256, 128],
+        #     lr=1e-4, n_simulations=25, c_puct=1.41, gamma=1.0,
+        #     max_depth=32, l2_reg=1e-4, use_student_ratio=0.0,
+        #     buffer_size=50_000, batch_size=64, min_buffer_size=2_000,
+        # ),
     },
 }
 

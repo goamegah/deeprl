@@ -56,7 +56,8 @@ from deeprl.registry import (
 # CONSTANTES
 # ============================================================================
 
-DEFAULT_CHECKPOINTS = [1_000, 10_000, 100_000, 1_000_000]
+# DEFAULT_CHECKPOINTS = [1_000, 10_000, 100_000, 1_000_000]
+DEFAULT_CHECKPOINTS = [1_000, 10_000, 100_000]
 EVAL_EPISODES = 1000
 MAX_STEPS = 200
 

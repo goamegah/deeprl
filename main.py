@@ -1,22 +1,21 @@
 """
 DeepRL - Point d'entree principal
 
-Ce fichier permet de:
-1. Tester rapidement les environnements et agents
-2. Jouer contre un agent IA (interface graphique)
-3. Observer un agent jouer (interface graphique)
-4. Demontrer l'utilisation de la bibliotheque
+Flags:
+    --env       lineworld | gridworld | tictactoe | quarto  (defaut: gridworld)
+    --agent     nom de l'agent (ex: DDQN_ER, Random, Human)
+                Si absent → demo texte dans le terminal
+    --versus    adversaire pour jeux 2 joueurs (defaut: Random)
+                N'a de sens que si --agent est fourni et env 2 joueurs
 
-Pour l'entrainement et les benchmarks, utiliser: python run_experiments.py
-
-Usage:
-    python main.py                    # Test rapide (GridWorld + Q-Learning)
-    python main.py --gui              # Observer un agent jouer
-    python main.py --play             # Jouer contre un agent IA
-    python main.py --env lineworld    # Environnement specifique
-    python main.py --env gridworld    # GridWorld avec Q-Learning
-    python main.py --env tictactoe    # TicTacToe avec Random
-    python main.py --env quarto       # Quarto avec Random
+Exemples:
+    python main.py --env tictactoe                                 # stats texte
+    python main.py --env tictactoe --agent DDQN_ER                 # GUI: DDQN_ER vs Random
+    python main.py --env tictactoe --agent DDQN_ER --versus DDQN_PER  # GUI: agent vs agent
+    python main.py --env tictactoe --agent Human --versus DDQN_ER     # GUI: vous vs DDQN_ER
+    python main.py --env tictactoe --agent Human --versus Human        # GUI: pvp
+    python main.py --env lineworld --agent Human                   # GUI: vous jouez
+    python main.py --env lineworld --agent DDQN_ER                 # GUI: observer DDQN_ER
 """
 
 import argparse
@@ -30,6 +29,10 @@ from deeprl.registry import (
     QUICK_TRAIN_EPISODES, DEFAULT_FPS,
     make_env, make_env_2player, find_latest_model,
 )
+
+# Environnements 2 joueurs (supportent --versus)
+TWO_PLAYER_ENVS = {"tictactoe", "quarto"}
+
 
 
 def demo_lineworld():
@@ -336,222 +339,81 @@ def demo_quarto():
         print("\nMatch nul!")
 
 
-def demo_gui(env_name: str = "tictactoe", agent_name: str = None):
+def _resolve_agent(env_name: str, agent_name: str):
     """
-    Lance l'interface graphique pour OBSERVER un agent jouer.
-    """
-    print("=" * 60)
-    print(f"INTERFACE GRAPHIQUE — Observer un agent ({env_name})")
-    print("=" * 60)
-
-    try:
-        from deeprl.gui.game_viewer import watch_agent
-    except ImportError:
-        print("\n[WARNING] pygame non installe. Installez-le avec:")
-        print("   pip install pygame")
-        return
-
-    env, agent, fps = _build_gui_env_agent(env_name, agent_name, mode="watch")
-
-    print(f"\nEnvironnement: {env.name}")
-    print(f"Agent: {agent.name}")
-    print("\nControles:")
-    print("   SPACE: Pause")
-    print("   N: Step-by-step")
-    print("   UP/DOWN: Vitesse")
-    print("   ESC: Quitter")
-
-    watch_agent(env, agent, n_episodes=10, fps=fps)
-
-
-def demo_pvp(env_name: str = "tictactoe"):
-    """
-    Mode Humain vs Humain (2 joueurs sur le meme ecran).
-
-    Chaque joueur joue a tour de role avec la souris/clavier.
-    Supporte les jeux 2 joueurs: tictactoe et quarto.
-    """
-    print("=" * 60)
-    print(f"MODE: HUMAIN vs HUMAIN ({env_name})")
-    print("=" * 60)
-
-    try:
-        from deeprl.gui.game_viewer import GameViewer
-    except ImportError:
-        print("\n[WARNING] pygame non installe. Installez-le avec:")
-        print("   pip install pygame")
-        return
-
-    if env_name not in ("tictactoe", "quarto"):
-        print(f"\n[INFO] Le mode PvP n'est disponible que pour les jeux 2 joueurs.")
-        print("   Environnements supportes: tictactoe, quarto")
-        return
-
-    env = make_env_2player(env_name)
-
-    print(f"\nEnvironnement: {env.name}")
-    print("Mode: Humain vs Humain (meme ecran)")
-    print("\nControles:")
-    if "quarto" in env_name:
-        print("   Phase DONNER: cliquez sur une piece dans le panel droit")
-        print("   Phase PLACER: cliquez sur une case du plateau")
-    else:
-        print("   Cliquez sur une case ou touches 1-9")
-    print("   [R] Restart  [SPACE] Pause  [ESC] Quitter")
-    print("\nJoueur 0 commence!")
-
-    viewer = GameViewer(env, agent=None, fps=30, title="Humain vs Humain")
-    viewer.run(n_episodes=10)
-
-
-def demo_human_vs_agent(env_name: str = "tictactoe", agent_name: str = None):
-    """
-    Mode Humain vs Agent.
-
-    Supporte les jeux 2 joueurs (tictactoe, quarto) ET les jeux 1 joueur
-    (lineworld, gridworld) ou l'humain joue directement.
-    """
-    print("=" * 60)
-    print(f"MODE: HUMAIN vs AGENT ({env_name})")
-    print("=" * 60)
-
-    try:
-        from deeprl.gui.game_viewer import play_human_vs_agent, GameViewer
-    except ImportError:
-        print("\n[WARNING] pygame non installe. Installez-le avec:")
-        print("   pip install pygame")
-        return
-
-    # Jeux 1 joueur → humain joue directement (pas d'agent adversaire)
-    if env_name in ("lineworld", "gridworld"):
-        env = make_env_2player(env_name)
-
-        print(f"\nEnvironnement: {env.name}")
-        print("Mode: Humain (vous jouez!)")
-        print("\nControles:")
-        if "line" in env_name:
-            print("   LEFT/RIGHT: Se deplacer")
-        else:
-            print("   UP/DOWN/LEFT/RIGHT: Se deplacer")
-        print("   ESC: Quitter")
-
-        viewer = GameViewer(env, agent=None, fps=30)
-        viewer.run(n_episodes=5)
-        return
-
-    # Jeux 2 joueurs → charger / creer l'agent adversaire
-    env, agent, _ = _build_gui_env_agent(env_name, agent_name, mode="play")
-
-    print(f"\nEnvironnement: {env.name}")
-    print(f"Adversaire: {agent.name}")
-    print("\nControles:")
-    if "quarto" in env_name:
-        print("   Phase DONNER: cliquez sur une piece ou touche 0-9/A-F")
-        print("   Phase PLACER: cliquez sur une case ou touche 0-9/A-F")
-    else:
-        print("   Cliquez sur une case ou touches 1-9")
-    print("   SPACE: Pause | ESC: Quitter")
-    print("\nVous jouez en premier")
-
-    n_games = 3 if "quarto" in env_name else 5
-    play_human_vs_agent(env, agent, n_games=n_games, human_first=True)
-
-
-def _build_gui_env_agent(env_name: str, agent_name: str = None, mode: str = "watch"):
-    """
-    Construit l'environnement et l'agent pour le GUI.
-
-    Logique:
-    1. Si agent_name fourni → utilise cet agent
-    2. Sinon → utilise l'agent par defaut pour cet env
-    3. Cherche un modele .pt dans results/ (via find_latest_model)
-    4. Sinon, pour les agents apprenants → entrainement rapide
+    Cree, charge (ou entraine rapidement) un agent pour le GUI.
 
     Returns:
-        (env, agent, fps)
+        Instance d'agent prete a jouer (mode inference).
     """
-    # Resoudre l'agent
-    if agent_name is None:
-        agent_name = DEFAULT_AGENT.get(env_name, "Random")
-
-    # Verifier que l'agent existe pour cet env
     registry = AGENT_REGISTRY.get(env_name, {})
     if agent_name not in registry:
         available = list(registry.keys())
         print(f"\n[ERREUR] Agent '{agent_name}' non disponible pour '{env_name}'.")
         print(f"  Agents disponibles: {available}")
-        print(f"  Usage: python main.py --gui --env {env_name} --agent {available[0] if available else '...'}")
         sys.exit(1)
 
-    # Creer l'environnement (2 joueurs brut pour le GUI)
-    env = make_env_2player(env_name)
-
-    # Creer l'agent
     agent = registry[agent_name]()
 
-    # Tenter de charger un modele sauvegarde
-    fps = DEFAULT_FPS.get(env_name, 2)
-
     if agent_name in NO_TRAINING_AGENTS:
-        print(f"\n  Agent: {agent_name} (pas de modele necessaire)")
+        print(f"  Agent: {agent_name} (pas d'entrainement necessaire)")
     else:
         model_path = find_latest_model(env_name, agent_name)
         if model_path:
             agent.load(model_path)
             agent.set_training_mode(False)
-            print(f"\n  Modele charge: {model_path}")
+            print(f"  Modele charge: {model_path}")
             print(f"  ({agent.episodes_played} episodes d'entrainement)")
         else:
-            # Pas de modele → entrainement rapide sur env VsRandom
             n_ep = QUICK_TRAIN_EPISODES.get(env_name, 1000)
-            print(f"\n  [INFO] Pas de modele trouve pour {agent_name}")
+            print(f"  [INFO] Pas de modele trouve pour {agent_name}")
             print(f"  Entrainement rapide ({n_ep} episodes)...")
             train_env = make_env(env_name)
-            _quick_train(train_env, agent, n_ep)
+            trainer = Trainer(
+                train_env, agent, verbose=True,
+                log_interval=max(100, n_ep // 5)
+            )
+            trainer.train(n_episodes=n_ep, max_steps_per_episode=100)
             agent.set_training_mode(False)
-            print(f"  Entrainement termine")
+            print("  Entrainement termine")
 
-    return env, agent, fps
-
-
-def _quick_train(env, agent, n_episodes: int):
-    """Entraine rapidement un agent (pour le GUI)."""
-    trainer = Trainer(env, agent, verbose=True, log_interval=max(100, n_episodes // 5))
-    trainer.train(n_episodes=n_episodes, max_steps_per_episode=100)
+    return agent
 
 
 def main():
     """Point d'entree principal."""
     parser = argparse.ArgumentParser(
-        description="DeepRL - Bibliotheque de Deep Reinforcement Learning"
-    )
-    parser.add_argument(
-        "--gui",
-        action="store_true",
-        help="Lancer l'interface graphique (observer un agent)"
-    )
-    parser.add_argument(
-        "--play",
-        action="store_true",
-        help="Jouer contre un agent IA (mode humain vs agent)"
-    )
-    parser.add_argument(
-        "--pvp",
-        action="store_true",
-        help="Mode 2 joueurs humains sur le meme ecran (tictactoe, quarto)"
-    )
-    parser.add_argument(
-        "--agent",
-        type=str,
-        default=None,
-        help="Agent a utiliser pour --gui/--play (ex: TabularQLearning, Random)"
+        description="DeepRL - Deep Reinforcement Learning",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Exemples:
+  python main.py --env tictactoe                              # stats texte
+  python main.py --env tictactoe --agent DDQN_ER              # GUI: DDQN_ER vs Random
+  python main.py --env tictactoe --agent DDQN_ER --versus DDQN_PER  # agent vs agent
+  python main.py --env tictactoe --agent Human --versus DDQN_ER     # vous vs DDQN_ER
+  python main.py --env tictactoe --agent Human --versus Human        # pvp
+  python main.py --env lineworld --agent Human                # vous jouez
+  python main.py --env lineworld --agent DDQN_ER              # observer DDQN_ER
+        """
     )
     parser.add_argument(
         "--env",
         type=str,
         default="gridworld",
         choices=list(AGENT_REGISTRY.keys()),
-        help="Environnement a demontrer"
+        help="Environnement (defaut: gridworld)"
+    )
+    parser.add_argument(
+        "--agent",
+        type=str,
+        default=None,
+        help="Agent principal — si absent: demo texte. 'Human' = vous jouez."
+    )
+    parser.add_argument(
+        "--versus",
+        type=str,
+        default="Random",
+        help="Adversaire pour jeux 2 joueurs (defaut: Random). 'Human' = pvp."
     )
 
     args = parser.parse_args()
@@ -560,24 +422,94 @@ def main():
     print("    DeepRL - Deep Reinforcement Learning Library")
     print("=" * 60 + "\n")
 
-    if args.gui:
-        demo_gui(args.env, agent_name=args.agent)
-    elif args.play:
-        demo_human_vs_agent(args.env, agent_name=args.agent)
-    elif args.pvp:
-        demo_pvp(args.env)
-    else:
-        if args.env == "lineworld":
+    env_name = args.env
+    agent_name = args.agent
+    versus_name = args.versus
+
+    # ── Mode demo texte (aucun --agent) ──────────────────────────────────────
+    if agent_name is None:
+        if env_name == "lineworld":
             demo_lineworld()
-        elif args.env == "gridworld":
+        elif env_name == "gridworld":
             demo_gridworld()
-        elif args.env == "tictactoe":
+        elif env_name == "tictactoe":
             demo_tictactoe()
-        elif args.env == "quarto":
+        elif env_name == "quarto":
             demo_quarto()
+        print("\n[OK] Termine!")
+        return
+
+    # ── Mode GUI ──────────────────────────────────────────────────────────────
+    try:
+        from deeprl.gui.game_viewer import (
+            GameViewer, AgentVsAgentViewer,
+            HumanVsAgentViewer, watch_agent_vs_agent, play_human_vs_agent,
+        )
+    except ImportError:
+        print("\n[WARNING] pygame non installe. Installez-le avec:")
+        print("   pip install pygame")
+        sys.exit(1)
+
+    fps = DEFAULT_FPS.get(env_name, 2)
+    is_2player = env_name in TWO_PLAYER_ENVS
+
+    print(f"Environnement : {env_name}")
+    print(f"Agent         : {agent_name}")
+    if is_2player:
+        print(f"Versus        : {versus_name}")
+    print()
+
+    # ── Jeux 1 joueur (lineworld, gridworld) ─────────────────────────────────
+    if not is_2player:
+        env = make_env_2player(env_name)
+        if agent_name == "Human":
+            viewer = GameViewer(env, agent=None, fps=fps,
+                                title=f"Humain — {env_name}")
+        else:
+            agent = _resolve_agent(env_name, agent_name)
+            viewer = GameViewer(env, agent=agent, fps=fps,
+                                title=f"{agent_name} — {env_name}")
+        viewer.run(n_episodes=10)
+
+    # ── Jeux 2 joueurs (tictactoe, quarto) ───────────────────────────────────
+    else:
+        env = make_env_2player(env_name)
+        a0_human = (agent_name == "Human")
+        a1_human = (versus_name == "Human")
+
+        if a0_human and a1_human:
+            # Humain vs Humain
+            print("Mode: Humain vs Humain")
+            print("Controles: clic souris | R: restart | ESC: quitter")
+            viewer = GameViewer(env, agent=None, fps=30,
+                                title="Humain vs Humain")
+            viewer.run(n_episodes=10)
+
+        elif a0_human:
+            # Vous (J0) vs agent (J1)
+            opponent = _resolve_agent(env_name, versus_name)
+            print(f"Mode: Vous (J0) vs {versus_name} (J1)")
+            print("Controles: clic souris | SPACE: pause | ESC: quitter")
+            play_human_vs_agent(env, opponent, n_games=5, human_first=True)
+
+        elif a1_human:
+            # Agent (J0) vs Vous (J1)
+            agent = _resolve_agent(env_name, agent_name)
+            print(f"Mode: {agent_name} (J0) vs Vous (J1)")
+            print("Controles: clic souris | SPACE: pause | ESC: quitter")
+            play_human_vs_agent(env, agent, n_games=5, human_first=False)
+
+        else:
+            # Agent vs Agent
+            agent_0 = _resolve_agent(env_name, agent_name)
+            agent_1 = _resolve_agent(env_name, versus_name)
+            print(f"Mode: {agent_name} (J0) vs {versus_name} (J1)")
+            print("Controles: SPACE: pause | N: step | +/-: vitesse | ESC: quitter")
+            watch_agent_vs_agent(env, agent_0, agent_1, n_episodes=10, fps=fps)
 
     print("\n[OK] Termine!")
 
 
 if __name__ == "__main__":
     main()
+

@@ -2,7 +2,7 @@
 
 > Voir [SPECS.md](SPECS.md) pour la spécification technique complète (encoding, architecture, interfaces).
 
-## Démos console
+## Démos console (statistiques texte)
 
 ```bash
 python main.py --env lineworld       # Random sur LineWorld + parties/sec
@@ -14,27 +14,35 @@ python main.py --env quarto          # Random vs Random sur Quarto + parties/sec
 ## Interface graphique — Observer un agent
 
 ```bash
-python main.py --gui --env lineworld                  # Observer un agent sur LineWorld
-python main.py --gui --env gridworld                  # Observer un agent sur GridWorld
-python main.py --gui --env tictactoe                  # Observer un agent sur TicTacToe
-python main.py --gui --env quarto                     # Observer un agent sur Quarto
-python main.py --gui --env quarto --agent Random      # Forcer un agent spécifique
+python main.py --env lineworld --agent DDQN_ER        # Observer DDQN_ER sur LineWorld
+python main.py --env gridworld --agent DDQN_PER       # Observer DDQN_PER sur GridWorld
+python main.py --env tictactoe --agent DDQN_ER        # Observer DDQN_ER sur TicTacToe
+python main.py --env quarto --agent DDQN_ER           # Observer DDQN_ER sur Quarto
+python main.py --env tictactoe --agent Random         # Forcer l'agent Random
+```
+
+## Agent vs Agent (GUI)
+
+```bash
+python main.py --env tictactoe --agent DDQN_ER --versus DDQN_PER   # DDQN_ER vs DDQN_PER
+python main.py --env quarto --agent AlphaZero --versus DDQN_ER     # AlphaZero vs DDQN_ER
 ```
 
 ## Jouer contre l'IA (Humain vs Agent)
 
 ```bash
-python main.py --play --env lineworld    # Jouer seul sur LineWorld (clavier)
-python main.py --play --env gridworld    # Jouer seul sur GridWorld (clavier)
-python main.py --play --env tictactoe    # Humain vs IA sur TicTacToe
-python main.py --play --env quarto       # Humain vs IA sur Quarto
+python main.py --env lineworld --agent Human          # Jouer sur LineWorld (clavier)
+python main.py --env gridworld --agent Human          # Jouer sur GridWorld (clavier)
+python main.py --env tictactoe --agent Human          # Humain (J0) vs Random (J1)
+python main.py --env tictactoe --agent Human --versus DDQN_ER   # Humain vs DDQN_ER
+python main.py --env quarto --agent Human --versus AlphaZero    # Humain vs AlphaZero
 ```
 
 ## Humain vs Humain (même écran)
 
 ```bash
-python main.py --pvp --env tictactoe    # 2 joueurs humains sur TicTacToe
-python main.py --pvp --env quarto       # 2 joueurs humains sur Quarto
+python main.py --env tictactoe --agent Human --versus Human    # 2 joueurs humains
+python main.py --env quarto --agent Human --versus Human       # 2 joueurs humains
 ```
 
 ## Entraînement et benchmarks
