@@ -178,7 +178,7 @@ deeprl/
 | AlphaZero, MuZero, MuZero Stochastique | Tree Search + Neural |
 | ExpertApprentice | Imitation Learning |
 
-## Métriques (conformes aux consignes)
+## Métriques
 
 Évaluées sur **1 000 épisodes** à chaque checkpoint (politique d'évaluation, pas d'entraînement) :
 
@@ -194,10 +194,6 @@ deeprl/
 - NumPy >= 1.24
 - Pygame >= 2.5
 - Matplotlib >= 3.7
-
-## Licence
-
-MIT
 
 
 
