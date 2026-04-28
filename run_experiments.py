@@ -56,8 +56,8 @@ from deeprl.registry import (
 # CONSTANTES
 # ============================================================================
 
-# DEFAULT_CHECKPOINTS = [1_000, 10_000, 100_000, 1_000_000]
-DEFAULT_CHECKPOINTS = [1_000, 10_000, 100_000]
+DEFAULT_CHECKPOINTS = [1_000, 10_000, 100_000, 1_000_000]
+# DEFAULT_CHECKPOINTS = [1_000, 10_000, 100_000]
 EVAL_EPISODES = 1000
 MAX_STEPS = 200
 
@@ -409,6 +409,8 @@ def _plot_comparison_bars(
 ):
     """
     Barres groupées : un groupe par checkpoint, une barre par agent.
+    Les agents sans apprentissage (NO_TRAINING_AGENTS) sont affichés comme
+    lignes de référence horizontales en pointillés, pas comme barres.
     """
     agents = list(metrics.keys())
     ckpts = sorted({int(c) for a in metrics.values() for c in a.keys()})
@@ -416,14 +418,19 @@ def _plot_comparison_bars(
     if not agents or not ckpts:
         return
 
-    n_agents = len(agents)
+    # Séparer agents apprenants et agents de référence
+    learning_agents = [a for a in agents if a not in NO_TRAINING_AGENTS]
+    ref_agents = [a for a in agents if a in NO_TRAINING_AGENTS]
+
+    n_agents = len(learning_agents)
     n_ckpts = len(ckpts)
-    bar_width = 0.8 / n_agents
+    bar_width = 0.8 / max(n_agents, 1)
     x = np.arange(n_ckpts)
 
     fig, ax = plt.subplots(figsize=(max(10, n_ckpts * 2.5), 6))
 
-    for i, agent_name in enumerate(agents):
+    # ── Barres pour les agents apprenants ──
+    for i, agent_name in enumerate(learning_agents):
         values = []
         errors = []
         for ckpt in ckpts:
@@ -464,10 +471,40 @@ def _plot_comparison_bars(
                     rotation=0,
                 )
 
+    # ── Lignes de référence pour les agents sans apprentissage ──
+    ref_linestyles = ["--", "-.", ":"]
+    for j, agent_name in enumerate(ref_agents):
+        # Utiliser n'importe quel checkpoint (valeur identique partout)
+        first_key = next(iter(metrics[agent_name]), None)
+        if first_key is None:
+            continue
+        ref_val = metrics[agent_name][first_key].get(metric_key)
+        if ref_val is None:
+            continue
+        color = COLORS[(len(learning_agents) + j) % len(COLORS)]
+        linestyle = ref_linestyles[j % len(ref_linestyles)]
+        ax.axhline(
+            y=ref_val,
+            color=color,
+            linewidth=1.8,
+            linestyle=linestyle,
+            label=f"{agent_name} (réf.)",
+            alpha=0.9,
+        )
+        ax.text(
+            n_ckpts - 0.5,
+            ref_val,
+            f" {ref_val:.2f}",
+            color=color,
+            va="bottom",
+            fontsize=8,
+            fontweight="bold",
+        )
+
     ax.set_xlabel("Checkpoint (épisodes d'entraînement)")
     ax.set_ylabel(metric_label)
     ax.set_title(f"{env_name.upper()} — {metric_label} par agent et checkpoint")
-    ax.set_xticks(x + bar_width * (n_agents - 1) / 2)
+    ax.set_xticks(x + bar_width * (max(n_agents, 1) - 1) / 2)
     ax.set_xticklabels([f"{c:,}" for c in ckpts])
     ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), borderaxespad=0)
     ax.axhline(y=0, color="black", linewidth=0.5)

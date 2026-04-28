@@ -19,6 +19,9 @@ python main.py --env gridworld --agent DDQN_PER       # Observer DDQN_PER sur Gr
 python main.py --env tictactoe --agent DDQN_ER        # Observer DDQN_ER sur TicTacToe
 python main.py --env quarto --agent DDQN_ER           # Observer DDQN_ER sur Quarto
 python main.py --env tictactoe --agent Random         # Forcer l'agent Random
+
+# Spécifier le run source (évite la recherche automatique)
+python main.py --env tictactoe --agent DDQN_ER --run results/2026-04-24_11-25-20
 ```
 
 ## Agent vs Agent (GUI)

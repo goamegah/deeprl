@@ -295,32 +295,32 @@ AGENT_REGISTRY = {
         # "Random": lambda: RandomAgent(
         #     state_dim=114, n_actions=32,
         # ),
-        "DeepQLearning": lambda: DeepQLearning(
-            state_dim=114, n_actions=32, hidden_dims=[256, 128],
-            lr=3e-4, gamma=0.99,
-            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9999,
-        ),
-        "DoubleDeepQLearning": lambda: DoubleDeepQLearning(
-            state_dim=114, n_actions=32, hidden_dims=[256, 128],
-            lr=3e-4, gamma=0.99,
-            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9999,
-            target_update_freq=500,
-        ),
-        "DDQN_ER": lambda: DDQNWithExperienceReplay(
-            state_dim=114, n_actions=32, hidden_dims=[256, 128],
-            lr=3e-4, gamma=0.99,
-            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9999,
-            target_update_freq=500,
-            buffer_size=50_000, batch_size=64, min_buffer_size=5_000,
-        ),
-        "DDQN_PER": lambda: DDQNWithPrioritizedExperienceReplay(
-            state_dim=114, n_actions=32, hidden_dims=[256, 128],
-            lr=3e-4, gamma=0.99,
-            epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9999,
-            target_update_freq=500,
-            buffer_size=50_000, batch_size=64, min_buffer_size=5_000,
-            alpha=0.6, beta_start=0.4, beta_end=1.0, beta_frames=3_000_000,
-        ),
+        # "DeepQLearning": lambda: DeepQLearning(
+        #     state_dim=114, n_actions=32, hidden_dims=[256, 128],
+        #     lr=3e-4, gamma=0.99,
+        #     epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9999,
+        # ),
+        # "DoubleDeepQLearning": lambda: DoubleDeepQLearning(
+        #     state_dim=114, n_actions=32, hidden_dims=[256, 128],
+        #     lr=3e-4, gamma=0.99,
+        #     epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9999,
+        #     target_update_freq=500,
+        # ),
+        # "DDQN_ER": lambda: DDQNWithExperienceReplay(
+        #     state_dim=114, n_actions=32, hidden_dims=[256, 128],
+        #     lr=3e-4, gamma=0.99,
+        #     epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9999,
+        #     target_update_freq=500,
+        #     buffer_size=50_000, batch_size=64, min_buffer_size=5_000,
+        # ),
+        # "DDQN_PER": lambda: DDQNWithPrioritizedExperienceReplay(
+        #     state_dim=114, n_actions=32, hidden_dims=[256, 128],
+        #     lr=3e-4, gamma=0.99,
+        #     epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.9999,
+        #     target_update_freq=500,
+        #     buffer_size=50_000, batch_size=64, min_buffer_size=5_000,
+        #     alpha=0.6, beta_start=0.4, beta_end=1.0, beta_frames=3_000_000,
+        # ),
         # "REINFORCE": lambda: REINFORCE(
         #     state_dim=114, n_actions=32, hidden_dims=[256, 128],
         #     lr=1e-4, gamma=0.99,
@@ -338,12 +338,12 @@ AGENT_REGISTRY = {
         #     lr=1e-4, lr_critic=1e-4, gamma=0.99,
         #     clip_eps=0.2, n_epochs=4, entropy_coef=0.01, value_coef=0.5,
         # ),
-        # "RandomRollout": lambda: RandomRollout(
-        #     state_dim=114, n_actions=32, n_simulations=10, max_depth=32, gamma=1.0,
-        # ),
-        # "MCTS": lambda: MCTS(
-        #     state_dim=114, n_actions=32, n_simulations=50, c_puct=1.41, max_depth=32, gamma=1.0,
-        # ),
+        "RandomRollout": lambda: RandomRollout(
+            state_dim=114, n_actions=32, n_simulations=10, max_depth=32, gamma=1.0,
+        ),
+        "MCTS": lambda: MCTS(
+            state_dim=114, n_actions=32, n_simulations=50, c_puct=1.41, max_depth=32, gamma=1.0,
+        ),
         # "AlphaZero": lambda: AlphaZero(
         #     state_dim=114, n_actions=32, hidden_dims=[256, 128],
         #     lr=1e-4, gamma=0.99, n_simulations=25, c_puct=1.0,
@@ -441,15 +441,21 @@ def find_latest_model(env_name: str, agent_name: str) -> str | None:
 
     safe_name = agent_name.replace(" ", "_").replace("/", "_")
 
+    def _sort_key(p: str) -> int:
+        """Extrait le numéro de checkpoint pour un tri numérique."""
+        import re
+        m = re.search(r"_ckpt(\d+)\.pt$", p)
+        return int(m.group(1)) if m else 0
+
     # 1. Chercher dans results/latest/
     pattern = os.path.join("results", "latest", env_name, "models", f"{safe_name}_ckpt*.pt")
-    matches = sorted(glob.glob(pattern))
+    matches = sorted(glob.glob(pattern), key=_sort_key)
     if matches:
-        return matches[-1]  # Dernier checkpoint (plus grand numero)
+        return matches[-1]  # Checkpoint avec le plus grand numéro
 
     # 2. Chercher dans tous les runs
     pattern = os.path.join("results", "*", env_name, "models", f"{safe_name}_ckpt*.pt")
-    matches = sorted(glob.glob(pattern))
+    matches = sorted(glob.glob(pattern), key=_sort_key)
     if matches:
         return matches[-1]
 

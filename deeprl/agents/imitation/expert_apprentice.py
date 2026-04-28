@@ -211,10 +211,12 @@ class ExpertApprentice(Agent):
         for a in available_actions:
             root.children[a] = MCTSNode()
 
+        # Memoriser le joueur que nous optimisons avant toute simulation
+        our_player = env.determinize(state)._current_player
         for _ in range(self._expert.n_simulations):
             # determinize(state) reconstruit l'env depuis l'observation courante
             sim = env.determinize(state)
-            self._expert._simulate(root, sim)
+            self._expert._simulate(root, sim, our_player)
 
         return root.visit_counts_as_policy(self.n_actions, temperature=1.0)
 

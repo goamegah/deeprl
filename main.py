@@ -7,32 +7,34 @@ Flags:
                 Si absent → demo texte dans le terminal
     --versus    adversaire pour jeux 2 joueurs (defaut: Random)
                 N'a de sens que si --agent est fourni et env 2 joueurs
+    --run       dossier de run a utiliser (ex: results/2026-04-24_11-25-20)
+                Si absent → cherche dans results/latest puis tous les runs
 
 Exemples:
-    python main.py --env tictactoe                                 # stats texte
-    python main.py --env tictactoe --agent DDQN_ER                 # GUI: DDQN_ER vs Random
-    python main.py --env tictactoe --agent DDQN_ER --versus DDQN_PER  # GUI: agent vs agent
-    python main.py --env tictactoe --agent Human --versus DDQN_ER     # GUI: vous vs DDQN_ER
-    python main.py --env tictactoe --agent Human --versus Human        # GUI: pvp
-    python main.py --env lineworld --agent Human                   # GUI: vous jouez
-    python main.py --env lineworld --agent DDQN_ER                 # GUI: observer DDQN_ER
+    python main.py --env tictactoe                                           # stats texte
+    python main.py --env tictactoe --agent DDQN_ER                           # GUI: DDQN_ER vs Random
+    python main.py --env tictactoe --agent DDQN_ER --versus DDQN_PER         # GUI: agent vs agent
+    python main.py --env tictactoe --agent Human --versus DDQN_ER            # GUI: vous vs DDQN_ER
+    python main.py --env tictactoe --agent Human --versus Human               # GUI: pvp
+    python main.py --env lineworld --agent Human                             # GUI: vous jouez
+    python main.py --env lineworld --agent DDQN_ER                           # GUI: observer DDQN_ER
+    python main.py --env tictactoe --agent DDQN_ER --run results/2026-04-24  # run specifique
 """
 
 import argparse
 import sys
 
-from deeprl.envs import LineWorld, GridWorld, TicTacToe, Quarto
+from deeprl.envs import LineWorld, TicTacToe, Quarto
 from deeprl.agents import RandomAgent
 from deeprl.training import Trainer
 from deeprl.registry import (
-    AGENT_REGISTRY, NO_TRAINING_AGENTS, DEFAULT_AGENT,
+    AGENT_REGISTRY, NO_TRAINING_AGENTS,
     QUICK_TRAIN_EPISODES, DEFAULT_FPS,
     make_env, make_env_2player, find_latest_model,
 )
 
 # Environnements 2 joueurs (supportent --versus)
 TWO_PLAYER_ENVS = {"tictactoe", "quarto"}
-
 
 
 def demo_lineworld():
@@ -71,23 +73,6 @@ def demo_lineworld():
     print(f"   Recompense moyenne: {total_reward / n_games:.3f}")
     print(f"   Vitesse: {n_games / elapsed:.1f} parties/sec")
 
-    # 2. Partie de demonstration
-    print("\n" + "=" * 60)
-    print("PARTIE DE DEMONSTRATION")
-    print("=" * 60)
-
-    state = env.reset()
-    env.render()
-    step = 0
-    while not env.is_game_over and step < 20:
-        action = agent.act(state, env.get_available_actions())
-        state, reward, done = env.step(action)
-        step += 1
-        action_name = "←" if action == 0 else "→"
-        print(f"Step {step}: {action_name}, Reward={reward:.2f}")
-        env.render()
-    print(f"\n[OK] Episode termine en {step} steps")
-
 
 def demo_gridworld():
     """Simulation random sur GridWorld + parties/sec."""
@@ -97,7 +82,7 @@ def demo_gridworld():
     print("DEMO: GridWorld (Random)")
     print("=" * 60)
 
-    env = GridWorld.create_simple(size=5)
+    env = make_env("gridworld")
     agent = RandomAgent(state_dim=env.state_dim, n_actions=env.n_actions)
 
     print(f"\nEnvironnement: {env}")
@@ -124,25 +109,6 @@ def demo_gridworld():
     print(f"\nResultats ({n_games} parties):")
     print(f"   Recompense moyenne: {total_reward / n_games:.3f}")
     print(f"   Vitesse: {n_games / elapsed:.1f} parties/sec")
-
-    # 2. Partie de demonstration
-    print("\n" + "=" * 60)
-    print("PARTIE DE DEMONSTRATION")
-    print("=" * 60)
-
-    state = env.reset()
-    print("Grille:")
-    env.render()
-
-    step = 0
-    while not env.is_game_over and step < 50:
-        action = agent.act(state, env.get_available_actions())
-        state, reward, done = env.step(action)
-        step += 1
-        print(f"Step {step}: {GridWorld.ACTION_NAMES[action]}, Reward={reward:.2f}")
-        env.render()
-
-    print(f"\n[OK] Episode termine en {step} steps")
 
 
 def demo_tictactoe():
@@ -202,35 +168,6 @@ def demo_tictactoe():
     print(f"   Nuls: {draws} ({draws/n_games*100:.1f}%)")
     print(f"   Vitesse: {n_games/elapsed:.1f} parties/sec")
 
-    # 4. Partie de demonstration
-    print("\n" + "=" * 60)
-    print("PARTIE DE DEMONSTRATION")
-    print("=" * 60)
-
-    state = env.reset()
-    print("Debut de partie:")
-    env.render()
-
-    while not env.is_game_over:
-        available = env.get_available_actions()
-        if env.current_player == 0:
-            action = agent_x.act(state, available)
-            player = "X"
-        else:
-            action = agent_o.act(state, available)
-            player = "O"
-
-        state, reward, done = env.step(action)
-        print(f"\n{player} joue position {action}:")
-        env.render()
-
-    if env._winner == 0:
-        print("\nX gagne!")
-    elif env._winner == 1:
-        print("\nO gagne!")
-    else:
-        print("\nMatch nul!")
-
 
 def demo_quarto():
     """
@@ -252,21 +189,14 @@ def demo_quarto():
     print(f"   - 16 pieces avec 4 attributs binaires")
     print(f"   - 10 lignes gagnantes (4 rangees, 4 colonnes, 2 diagonales)")
 
-    # 2. Montrer les pieces
-    print("\nPieces disponibles (TALL/SHORT, DARK/LIGHT, SOLID/HOLLOW, SQUARE/ROUND):")
-    from deeprl.envs.quarto import QuartoPiece
-    pieces = QuartoPiece.all_pieces()
-    for i, piece in enumerate(pieces):
-        print(f"   {i:2d}: {piece}")
-
-    # 3. Creer les agents
+    # 2. Creer les agents
     agent1 = RandomAgent(state_dim=env.state_dim, n_actions=env.n_actions)
     agent2 = RandomAgent(state_dim=env.state_dim, n_actions=env.n_actions)
 
     print(f"\nJoueur 0: {agent1.name}")
     print(f"Joueur 1: {agent2.name}")
 
-    # 4. Tournoi Random vs Random
+    # 3. Tournoi Random vs Random
     print("\n" + "=" * 60)
     print("TOURNOI: Random vs Random")
     print("=" * 60)
@@ -301,51 +231,20 @@ def demo_quarto():
     print(f"   Nuls: {wins['Nul']} ({wins['Nul']/n_games*100:.0f}%)")
     print(f"   Vitesse: {n_games/elapsed:.1f} parties/sec")
 
-    # 5. Partie de demonstration
-    print("\n" + "=" * 60)
-    print("PARTIE DE DEMONSTRATION")
-    print("=" * 60)
 
-    state = env.reset()
-    print("Debut de partie:")
-    env.render()
-
-    step = 0
-    while not env.is_game_over and step < 32:
-        available = env.get_available_actions()
-
-        if env.current_player == 0:
-            action = agent1.act(state, available)
-            player = "Joueur 0"
-        else:
-            action = agent2.act(state, available)
-            player = "Joueur 1"
-
-        state, reward, done = env.step(action)
-        step += 1
-
-        if action < 16:
-            row, col = action // 4, action % 4
-            print(f"\n{player} place en ({row}, {col})")
-        else:
-            print(f"\n{player} donne la piece {action - 16}")
-        env.render()
-
-    if env._winner == 0:
-        print("\nJoueur 0 gagne!")
-    elif env._winner == 1:
-        print("\nJoueur 1 gagne!")
-    else:
-        print("\nMatch nul!")
-
-
-def _resolve_agent(env_name: str, agent_name: str):
+def _resolve_agent(env_name: str, agent_name: str, run_dir: str = None):
     """
     Cree, charge (ou entraine rapidement) un agent pour le GUI.
+
+    Args:
+        run_dir: si fourni, cherche le modele dans run_dir/<env>/models/
+                 sinon utilise find_latest_model (results/latest puis fallback).
 
     Returns:
         Instance d'agent prete a jouer (mode inference).
     """
+    import glob, re, os as _os
+
     registry = AGENT_REGISTRY.get(env_name, {})
     if agent_name not in registry:
         available = list(registry.keys())
@@ -358,7 +257,17 @@ def _resolve_agent(env_name: str, agent_name: str):
     if agent_name in NO_TRAINING_AGENTS:
         print(f"  Agent: {agent_name} (pas d'entrainement necessaire)")
     else:
-        model_path = find_latest_model(env_name, agent_name)
+        if run_dir:
+            safe = agent_name.replace(" ", "_").replace("/", "_")
+            pattern = _os.path.join(run_dir, env_name, "models", f"{safe}_ckpt*.pt")
+            matches = sorted(glob.glob(pattern),
+                             key=lambda p: int(re.search(r"_ckpt(\d+)\.pt$", p).group(1)))
+            model_path = matches[-1] if matches else None
+            if not model_path:
+                print(f"  [ERREUR] Aucun modele pour {agent_name} dans {run_dir}/{env_name}/models/")
+                sys.exit(1)
+        else:
+            model_path = find_latest_model(env_name, agent_name)
         if model_path:
             agent.load(model_path)
             agent.set_training_mode(False)
@@ -415,6 +324,15 @@ Exemples:
         default="Random",
         help="Adversaire pour jeux 2 joueurs (defaut: Random). 'Human' = pvp."
     )
+    parser.add_argument(
+        "--run",
+        type=str,
+        default=None,
+        metavar="DIR",
+        help="Dossier de run a utiliser pour charger les modeles "
+             "(ex: results/2026-04-24_11-25-20). "
+             "Si absent: cherche dans results/latest puis tous les runs."
+    )
 
     args = parser.parse_args()
 
@@ -425,6 +343,7 @@ Exemples:
     env_name = args.env
     agent_name = args.agent
     versus_name = args.versus
+    run_dir = args.run
 
     # ── Mode demo texte (aucun --agent) ──────────────────────────────────────
     if agent_name is None:
@@ -442,8 +361,7 @@ Exemples:
     # ── Mode GUI ──────────────────────────────────────────────────────────────
     try:
         from deeprl.gui.game_viewer import (
-            GameViewer, AgentVsAgentViewer,
-            HumanVsAgentViewer, watch_agent_vs_agent, play_human_vs_agent,
+            GameViewer, watch_agent_vs_agent, play_human_vs_agent,
         )
     except ImportError:
         print("\n[WARNING] pygame non installe. Installez-le avec:")
@@ -466,7 +384,7 @@ Exemples:
             viewer = GameViewer(env, agent=None, fps=fps,
                                 title=f"Humain — {env_name}")
         else:
-            agent = _resolve_agent(env_name, agent_name)
+            agent = _resolve_agent(env_name, agent_name, run_dir)
             viewer = GameViewer(env, agent=agent, fps=fps,
                                 title=f"{agent_name} — {env_name}")
         viewer.run(n_episodes=10)
@@ -487,22 +405,22 @@ Exemples:
 
         elif a0_human:
             # Vous (J0) vs agent (J1)
-            opponent = _resolve_agent(env_name, versus_name)
+            opponent = _resolve_agent(env_name, versus_name, run_dir)
             print(f"Mode: Vous (J0) vs {versus_name} (J1)")
             print("Controles: clic souris | SPACE: pause | ESC: quitter")
             play_human_vs_agent(env, opponent, n_games=5, human_first=True)
 
         elif a1_human:
             # Agent (J0) vs Vous (J1)
-            agent = _resolve_agent(env_name, agent_name)
+            agent = _resolve_agent(env_name, agent_name, run_dir)
             print(f"Mode: {agent_name} (J0) vs Vous (J1)")
             print("Controles: clic souris | SPACE: pause | ESC: quitter")
             play_human_vs_agent(env, agent, n_games=5, human_first=False)
 
         else:
             # Agent vs Agent
-            agent_0 = _resolve_agent(env_name, agent_name)
-            agent_1 = _resolve_agent(env_name, versus_name)
+            agent_0 = _resolve_agent(env_name, agent_name, run_dir)
+            agent_1 = _resolve_agent(env_name, versus_name, run_dir)
             print(f"Mode: {agent_name} (J0) vs {versus_name} (J1)")
             print("Controles: SPACE: pause | N: step | +/-: vitesse | ESC: quitter")
             watch_agent_vs_agent(env, agent_0, agent_1, n_episodes=10, fps=fps)

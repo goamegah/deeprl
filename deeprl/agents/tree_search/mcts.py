@@ -216,9 +216,11 @@ class MCTS(Agent):
 
         # Executer n_simulations iterations
         # determinize(state) reconstruit l'env depuis l'observation de l'agent
+        # Memoriser le joueur que nous optimisons avant toute simulation
+        our_player = env.determinize(state)._current_player
         for _ in range(self.n_simulations):
             sim = env.determinize(state)
-            self._simulate(root, sim)
+            self._simulate(root, sim, our_player)
 
         return root.best_action_by_visits()
 
@@ -226,7 +228,7 @@ class MCTS(Agent):
     # Simulation MCTS (4 phases)
     # ------------------------------------------------------------------
 
-    def _simulate(self, root: MCTSNode, sim) -> float:
+    def _simulate(self, root: MCTSNode, sim, our_player: int = 0) -> float:
         """
         Une simulation MCTS complete :
         1. Selection : UCB1 jusqu'a une feuille
@@ -253,8 +255,12 @@ class MCTS(Agent):
                     a for a, c in node.children.items() if c.N == 0
                 ]
                 action = random.choice(unvisited)
-                _, r, _ = sim.step(action)
-                terminal_reward = float(r)  # capture la recompense (terminale ou non)
+                _, r, done = sim.step(action)
+                # Ajuster le signe : r > 0 signifie que le joueur courant a gagne
+                r = float(r)
+                if done and r > 0 and hasattr(sim, '_winner') and sim._winner != our_player:
+                    r = -r
+                terminal_reward = r
                 node = node.children[action]
                 path.append(node)
                 break  # Arret apres expansion
@@ -264,8 +270,11 @@ class MCTS(Agent):
                     node.children,
                     key=lambda a: node.children[a].ucb1(node.N, self.c_puct),
                 )
-                _, r, _ = sim.step(action)
-                terminal_reward = float(r)
+                _, r, done = sim.step(action)
+                r = float(r)
+                if done and r > 0 and hasattr(sim, '_winner') and sim._winner != our_player:
+                    r = -r
+                terminal_reward = r
                 node = node.children[action]
                 path.append(node)
 
@@ -275,7 +284,7 @@ class MCTS(Agent):
         if sim.is_game_over:
             value = terminal_reward
         else:
-            value = self._random_rollout(sim)
+            value = self._random_rollout(sim, our_player)
 
         # --- 4. Backpropagation ---
         for n in reversed(path):
@@ -283,8 +292,8 @@ class MCTS(Agent):
 
         return value
 
-    def _random_rollout(self, sim) -> float:
-        """Rollout aleatoire depuis l'etat courant de sim."""
+    def _random_rollout(self, sim, our_player: int = 0) -> float:
+        """Rollout aleatoire depuis l'etat courant de sim (du point de vue de our_player)."""
         total = 0.0
         discount = 1.0
         depth = 0
@@ -294,8 +303,12 @@ class MCTS(Agent):
             if not available:
                 break
             action = int(np.random.choice(available))
-            _, r, _ = sim.step(action)
-            total += discount * float(r)
+            _, r, done = sim.step(action)
+            r = float(r)
+            # Jeu zero-sum : inverser le signe si c'est l'adversaire qui a gagne
+            if done and r > 0 and hasattr(sim, '_winner') and sim._winner != our_player:
+                r = -r
+            total += discount * r
             discount *= self.gamma
             depth += 1
 

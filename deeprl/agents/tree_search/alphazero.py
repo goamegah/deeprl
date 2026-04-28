@@ -249,13 +249,15 @@ class AlphaZero(Agent):
             root.children[a] = MCTSNode(prior=float(priors[a]))
 
         # determinize(state) reconstruit l'env depuis l'observation de l'agent
+        # Memoriser le joueur que nous optimisons avant toute simulation
+        our_player = env.determinize(state)._current_player
         for _ in range(self.n_simulations):
             sim = env.determinize(state)
-            self._mcts_simulate(root, sim)
+            self._mcts_simulate(root, sim, our_player)
 
         return root.visit_counts_as_policy(self.n_actions, self.temperature)
 
-    def _mcts_simulate(self, root: MCTSNode, sim) -> float:
+    def _mcts_simulate(self, root: MCTSNode, sim, our_player: int = 0) -> float:
         """
         Une simulation MCTS avec PUCT + evaluation reseau :
           - Selection  : PUCT jusqu'a feuille
@@ -273,14 +275,18 @@ class AlphaZero(Agent):
                 node.children,
                 key=lambda a: node.children[a].puct(node.N, self.c_puct),
             )
-            _, r, _ = sim.step(action)
-            terminal_reward = float(r)
+            _, r, done = sim.step(action)
+            r = float(r)
+            # Jeu zero-sum : inverser le signe si l'adversaire a gagne
+            if done and r > 0 and hasattr(sim, '_winner') and sim._winner != our_player:
+                r = -r
+            terminal_reward = r
             node = node.children[action]
             path.append(node)
 
         # Evaluation + Expansion
         if sim.is_game_over:
-            value = terminal_reward  # recompense terminale capturee lors du dernier step
+            value = terminal_reward  # recompense terminale du point de vue de our_player
         else:
             leaf_state = sim.get_state()
             priors, value = self._network_output(leaf_state)

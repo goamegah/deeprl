@@ -119,9 +119,15 @@ class RandomRollout(Agent):
             sim: Environnement deja determinize depuis l'observation courante.
 
         Returns:
-            Retour disconte cumule du rollout.
+            Retour disconte cumule du rollout, du point de vue du joueur initial.
         """
+        # Memoriser le joueur que nous optimisons (player 0 dans QuartoVsRandom)
+        our_player = sim._current_player
+
         _, reward, done = sim.step(first_action)
+        # Si le jeu est terminé avec une récompense positive, vérifier qui a gagné
+        if done and reward > 0 and hasattr(sim, '_winner') and sim._winner != our_player:
+            reward = -reward
 
         total = float(reward)
         discount = self.gamma
@@ -133,6 +139,9 @@ class RandomRollout(Agent):
                 break
             action = int(np.random.choice(available))
             _, r, done = sim.step(action)
+            # Ajuster le signe selon qui a gagné (jeu à somme nulle)
+            if done and r > 0 and hasattr(sim, '_winner') and sim._winner != our_player:
+                r = -r
             total += discount * float(r)
             discount *= self.gamma
             depth += 1
