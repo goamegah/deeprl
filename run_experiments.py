@@ -474,7 +474,7 @@ def _plot_comparison_bars(
     # ── Lignes de référence pour les agents sans apprentissage ──
     ref_linestyles = ["--", "-.", ":"]
     for j, agent_name in enumerate(ref_agents):
-        # Utiliser n'importe quel checkpoint (valeur identique partout)
+        # Utiliser n'importe quel checkpoint non-sweep (valeur identique partout)
         first_key = next(iter(metrics[agent_name]), None)
         if first_key is None:
             continue
